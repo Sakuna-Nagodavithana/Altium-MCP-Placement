@@ -1,0 +1,8 @@
+mcp>=1.28.0
+python-dotenv>=1.0.0
+# Optional: schematic PDF -> BOM OCR helper (pdf_bom_ocr.py)
+# Requires system poppler (for pdf2image) and Tesseract OCR on PATH.
+pdf2image>=1.17.0
+pytesseract>=0.3.10
+pdfplumber>=0.11.0
+Pillow>=10.0.0

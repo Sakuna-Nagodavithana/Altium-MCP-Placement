@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <PropertyGroup>
+    <_Net8RefDir>$(MSBuildProjectDirectory)\RefAssemblies\Microsoft.NETCore.App.Ref.8.0.11\ref\net8.0</_Net8RefDir>
+    <_WinDesktopRefDir>$(MSBuildProjectDirectory)\RefAssemblies\Microsoft.WindowsDesktop.App.Ref.8.0.11\ref\net8.0</_WinDesktopRefDir>
+  </PropertyGroup>
+
+  <Target Name="AddDevExpressMarkupRefs" BeforeTargets="MarkupCompilePass1" AfterTargets="ResolveReferences">
+    <ItemGroup>
+      <_MarkupRef Include="$(_Net8RefDir)\System.Runtime.dll" />
+      <_MarkupRef Include="$(_Net8RefDir)\System.Runtime.InteropServices.dll" />
+      <_MarkupRef Include="$(_Net8RefDir)\System.Runtime.CompilerServices.Unsafe.dll" />
+      <_MarkupRef Include="$(_WinDesktopRefDir)\System.Drawing.Common.dll" Condition="Exists('$(_WinDesktopRefDir)\System.Drawing.Common.dll')" />
+      <ReferencePath Include="@(_MarkupRef)" Condition="Exists('%(Identity)')" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="RemoveDevExpressMarkupRefs" AfterTargets="MarkupCompilePass2">
+    <ItemGroup>
+      <ReferencePath Remove="@(_MarkupRef)" />
+    </ItemGroup>
+  </Target>
+</Project>

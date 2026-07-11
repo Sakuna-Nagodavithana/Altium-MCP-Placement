@@ -1,0 +1,75 @@
+# Build / IDE
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+[Ll]og/
+[Ll]ogs/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.binlog
+
+# NuGet / local deps (restored or copied by build script)
+packages/
+**/packages/
+Assemblies/
+**/Assemblies/
+RefAssemblies/
+**/RefAssemblies/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Secrets & local machine config — NEVER commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+secrets/
+mcp-settings.json
+**/mcp-settings.json
+
+# Local Altium / deploy artifacts
+Deploy/
+OriginalRelease/
+*.zip
+*.dll
+*.pdb
+*.exe
+!Assets/**
+
+# Audit / scratch bundles (not source of truth)
+audit-bundle/
+audit-upload/
+HANDOFF-FOR-AI.md
+.parity_*.json
+**/inspect/bin/
+**/inspect/obj/
+
+# Local debug helpers (machine-specific paths)
+altium-mcp/inspect/
+altium-mcp/debug_sch_labels.py
+
+
+# OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Test / cache noise
+CodeCoverage/
+TestResult.xml
+nunit-*.xml

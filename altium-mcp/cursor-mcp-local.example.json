@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "altium-schematic": {
+      "command": "python",
+      "args": [
+        "PATH/TO/REPO/altium-mcp/server.py"
+      ],
+      "env": {
+        "ALTIUM_CONNECTIVITY_FILE": "%USERPROFILE%/Documents/AltiumEE/connectivity.json",
+        "MCP_TRANSPORT": "stdio"
+      }
+    }
+  }
+}

@@ -1,0 +1,158 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <LangVersion>9.0</LangVersion>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{6FE3A9E3-36F1-4B94-967E-772357D2C44F}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>EasyEDA_Loader</RootNamespace>
+    <AssemblyName>Altium-MCP-Placement</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <ResolveAssemblyReferenceIgnoreVersionMismatch>true</ResolveAssemblyReferenceIgnoreVersionMismatch>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Altium.Controls">
+      <HintPath>Assemblies\Altium.Controls.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Altium.Controls.Skins">
+      <HintPath>Assemblies\Altium.Controls.Skins.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Altium.SDK">
+      <HintPath>Assemblies\Altium.SDK.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Altium.SDK.Interfaces">
+      <HintPath>Assemblies\Altium.SDK.Interfaces.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="DevExpress.Data.v24.1">
+      <HintPath>Assemblies\DevExpress.Data.v24.1.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="DevExpress.Utils.v24.1">
+      <HintPath>Assemblies\DevExpress.Utils.v24.1.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Drawing.Primitives">
+      <HintPath>RefAssemblies\Microsoft.NETCore.App.Ref.8.0.11\ref\net8.0\System.Drawing.Primitives.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xaml" />
+    <Reference Include="WindowsBase" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="API\AltiumApi.cs" />
+    <Compile Include="BaseForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="CanvasZoomPanHelper.cs" />
+    <Compile Include="Component.cs" />
+    <Compile Include="ConnectivityExporter.cs" />
+    <Compile Include="CoordUtils.cs" />
+    <Compile Include="CSharpPlugin.cs" />
+    <Compile Include="DesignExporter.cs" />
+    <Compile Include="API\EasyedaApi.cs" />
+    <Compile Include="API\JlcpcbPartsApi.cs" />
+    <Compile Include="BomBuilderViewModel.cs" />
+    <Compile Include="BomExporter.cs" />
+    <Compile Include="BomLoader.cs" />
+    <Compile Include="BomRow.cs" />
+    <Compile Include="Dialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="DialogWindowUiBuilder.cs" />
+    <Compile Include="DialogWindow.cs" />
+    <Compile Include="EasyEDALoader.cs" />
+    <Compile Include="IcClusterRunner.cs" />
+    <Compile Include="PackageRules.cs" />
+    <Compile Include="SchematicPdfReader.cs" />
+    <Compile Include="McpAutoExport.cs" />
+    <Compile Include="McpControlWindow.xaml.cs" />
+    <Compile Include="McpServerManager.cs" />
+    <Compile Include="NetClassPreviewWindow.cs" />
+    <Compile Include="PcbDesignRulesSetup.cs" />
+    <Compile Include="PcbRulesProfile.cs" />
+    <Compile Include="PcbDocumentHelper.cs" />
+    <Compile Include="PcbSelectionHelper.cs" />
+    <Compile Include="Placement\PlacementChains.cs" />
+    <Compile Include="Placement\PlacementConstants.cs" />
+    <Compile Include="Placement\ForceDirectedOptimizer.cs" />
+    <Compile Include="Placement\PlacementLayout.cs" />
+    <Compile Include="Placement\PlacementPlanBuilder.cs" />
+    <Compile Include="Placement\PlacementPlannerService.cs" />
+    <Compile Include="Placement\PlacementSupport.cs" />
+    <Compile Include="PlacementPlanGenerator.cs" />
+    <Compile Include="SymbolDrawing.cs" />
+    <Compile Include="SymbolShapes\EeSymbolArc.cs" />
+    <Compile Include="SymbolShapes\EeSymbolCircle.cs" />
+    <Compile Include="SymbolShapes\EeSymbolEllipse.cs" />
+    <Compile Include="SymbolShapes\EeSymbolPath.cs" />
+    <Compile Include="SymbolShapes\EeSymbolPin.cs" />
+    <Compile Include="SymbolShapes\EeSymbolPolygon.cs" />
+    <Compile Include="SymbolShapes\EeSymbolPolyline.cs" />
+    <Compile Include="SymbolShapes\EeSymbolRectangle.cs" />
+    <Compile Include="SymbolShapes\EeSymbolShape.cs" />
+    <Compile Include="FootprintShapes\EeFootprint3dModel.cs" />
+    <Compile Include="FootprintShapes\EeFootprintArc.cs" />
+    <Compile Include="FootprintShapes\EeFootprintCircle.cs" />
+    <Compile Include="FootprintShapes\EeFootprintHole.cs" />
+    <Compile Include="FootprintShapes\EeFootprintPad.cs" />
+    <Compile Include="FootprintShapes\EeFootprintRectangle.cs" />
+    <Compile Include="FootprintShapes\EeFootprintText.cs" />
+    <Compile Include="FootprintShapes\EeFootprintTrack.cs" />
+    <Compile Include="FootprintShapes\EeFootprintVia.cs" />
+    <Compile Include="FootprintShapes\EeFootprintShape.cs" />
+    <Compile Include="EEPCB.cs" />
+    <Compile Include="EESCH.cs" />
+    <Compile Include="FootprintData.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Shapes.cs" />
+    <Compile Include="SvgArcUtils.cs" />
+    <Compile Include="SymbolData.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
+    <None Include="packages.config" />
+    <None Include="Properties\licenses.licx" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="DialogWindow.xaml" />
+    <None Include="McpControlWindow.xaml" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

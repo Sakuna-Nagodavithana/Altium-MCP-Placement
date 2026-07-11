@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 2,
+  "exportedAt": "2026-06-19T12:00:00Z",
+  "project": {
+    "name": "DemoProject",
+    "path": "DemoProject.PrjPcb"
+  },
+  "sheet": "Sheet1.SchDoc",
+  "schematics": [
+    {
+      "sheet": "Sheet1.SchDoc",
+      "path": "Sheet1.SchDoc",
+      "components": [
+        {
+          "designator": "U1",
+          "libReference": "STM32F103C8T6",
+          "comment": "MCU",
+          "placement": { "xMils": 1200.0, "yMils": 800.0, "xMm": 30.48, "yMm": 20.32, "rotation": "0" },
+          "parameters": {
+            "LCSC": "C8734",
+            "Manufacturer": "STMicroelectronics"
+          },
+          "pins": [
+            { "number": "1", "name": "VBAT", "net": "VBAT", "electrical": "Passive" },
+            { "number": "7", "name": "NRST", "net": "NRST", "electrical": "Input" },
+            { "number": "8", "name": "VSSA", "net": "GND", "electrical": "Power" },
+            { "number": "9", "name": "VDDA", "net": "3V3", "electrical": "Power" },
+            { "number": "44", "name": "BOOT0", "net": "BOOT0", "electrical": "Input" }
+          ]
+        },
+        {
+          "designator": "R1",
+          "libReference": "Resistor",
+          "comment": "10k",
+          "placement": { "xMils": 900.0, "yMils": 650.0, "xMm": 22.86, "yMm": 16.51, "rotation": "0" },
+          "parameters": { "Value": "10k", "LCSC": "C25744" },
+          "pins": [
+            { "number": "1", "name": "1", "net": "NRST", "electrical": "Passive" },
+            { "number": "2", "name": "2", "net": "3V3", "electrical": "Passive" }
+          ]
+        },
+        {
+          "designator": "C1",
+          "libReference": "Capacitor",
+          "comment": "100nF",
+          "placement": { "xMils": 1050.0, "yMils": 700.0, "xMm": 26.67, "yMm": 17.78, "rotation": "90" },
+          "parameters": { "Value": "100nF", "LCSC": "C14663" },
+          "pins": [
+            { "number": "1", "name": "1", "net": "3V3", "electrical": "Passive" },
+            { "number": "2", "name": "2", "net": "GND", "electrical": "Passive" }
+          ]
+        },
+        {
+          "designator": "J1",
+          "libReference": "USB-C-16P",
+          "comment": "USB-C Receptacle",
+          "placement": { "xMils": 400.0, "yMils": 500.0, "xMm": 10.16, "yMm": 12.7, "rotation": "270" },
+          "parameters": { "LCSC": "C2765186" },
+          "pins": [
+            { "number": "A4", "name": "VBUS", "net": "VBUS", "electrical": "Power" },
+            { "number": "A5", "name": "CC1", "net": "CC1", "electrical": "Passive" },
+            { "number": "B5", "name": "CC2", "net": "CC2", "electrical": "Passive" },
+            { "number": "A12", "name": "GND", "net": "GND", "electrical": "Power" }
+          ]
+        }
+      ],
+      "nets": [
+        {
+          "name": "3V3",
+          "connections": [
+            { "designator": "U1", "pin": "9" },
+            { "designator": "R1", "pin": "2" },
+            { "designator": "C1", "pin": "1" }
+          ]
+        },
+        {
+          "name": "GND",
+          "connections": [
+            { "designator": "U1", "pin": "8" },
+            { "designator": "C1", "pin": "2" },
+            { "designator": "J1", "pin": "A12" }
+          ]
+        }
+      ],
+      "ercViolations": [
+        {
+          "severity": "Warning",
+          "message": "Net CC1 has only one pin connection",
+          "object": "CC1"
+        }
+      ]
+    }
+  ],
+  "pcb": {
+    "document": "DemoProject.PcbDoc",
+    "path": "DemoProject.PcbDoc",
+    "components": [
+      {
+        "designator": "U1",
+        "pattern": "LQFP48",
+        "description": "MCU",
+        "layer": "Top",
+        "placement": { "xMils": 2500.0, "yMils": 1800.0, "xMm": 63.5, "yMm": 45.72, "rotation": 0.0, "layer": "Top" },
+        "pins": [
+          { "name": "1", "net": "VBAT" },
+          { "name": "7", "net": "NRST" }
+        ]
+      },
+      {
+        "designator": "R1",
+        "pattern": "0603",
+        "description": "10k",
+        "layer": "Top",
+        "placement": { "xMils": 2200.0, "yMils": 1700.0, "xMm": 55.88, "yMm": 43.18, "rotation": 90.0, "layer": "Top" },
+        "pins": [
+          { "name": "1", "net": "NRST" },
+          { "name": "2", "net": "3V3" }
+        ]
+      }
+    ],
+    "nets": [
+      {
+        "name": "3V3",
+        "connections": [
+          { "designator": "R1", "pin": "2" }
+        ]
+      },
+      {
+        "name": "NRST",
+        "connections": [
+          { "designator": "U1", "pin": "7" },
+          { "designator": "R1", "pin": "1" }
+        ]
+      }
+    ]
+  },
+  "components": [
+    {
+      "designator": "U1",
+      "sheet": "Sheet1.SchDoc",
+      "libReference": "STM32F103C8T6",
+      "comment": "MCU",
+      "placement": { "xMils": 1200.0, "yMils": 800.0, "xMm": 30.48, "yMm": 20.32, "rotation": "0" },
+      "parameters": { "LCSC": "C8734", "Manufacturer": "STMicroelectronics" },
+      "pins": [
+        { "number": "1", "name": "VBAT", "net": "VBAT", "electrical": "Passive" },
+        { "number": "7", "name": "NRST", "net": "NRST", "electrical": "Input" },
+        { "number": "8", "name": "VSSA", "net": "GND", "electrical": "Power" },
+        { "number": "9", "name": "VDDA", "net": "3V3", "electrical": "Power" },
+        { "number": "44", "name": "BOOT0", "net": "BOOT0", "electrical": "Input" }
+      ]
+    },
+    {
+      "designator": "R1",
+      "sheet": "Sheet1.SchDoc",
+      "libReference": "Resistor",
+      "comment": "10k",
+      "placement": { "xMils": 900.0, "yMils": 650.0, "xMm": 22.86, "yMm": 16.51, "rotation": "0" },
+      "parameters": { "Value": "10k", "LCSC": "C25744" },
+      "pins": [
+        { "number": "1", "name": "1", "net": "NRST", "electrical": "Passive" },
+        { "number": "2", "name": "2", "net": "3V3", "electrical": "Passive" }
+      ]
+    },
+    {
+      "designator": "C1",
+      "sheet": "Sheet1.SchDoc",
+      "libReference": "Capacitor",
+      "comment": "100nF",
+      "placement": { "xMils": 1050.0, "yMils": 700.0, "xMm": 26.67, "yMm": 17.78, "rotation": "90" },
+      "parameters": { "Value": "100nF", "LCSC": "C14663" },
+      "pins": [
+        { "number": "1", "name": "1", "net": "3V3", "electrical": "Passive" },
+        { "number": "2", "name": "2", "net": "GND", "electrical": "Passive" }
+      ]
+    },
+    {
+      "designator": "J1",
+      "sheet": "Sheet1.SchDoc",
+      "libReference": "USB-C-16P",
+      "comment": "USB-C Receptacle",
+      "placement": { "xMils": 400.0, "yMils": 500.0, "xMm": 10.16, "yMm": 12.7, "rotation": "270" },
+      "parameters": { "LCSC": "C2765186" },
+      "pins": [
+        { "number": "A4", "name": "VBUS", "net": "VBUS", "electrical": "Power" },
+        { "number": "A5", "name": "CC1", "net": "CC1", "electrical": "Passive" },
+        { "number": "B5", "name": "CC2", "net": "CC2", "electrical": "Passive" },
+        { "number": "A12", "name": "GND", "net": "GND", "electrical": "Power" }
+      ]
+    }
+  ],
+  "nets": [
+    {
+      "name": "3V3",
+      "sheet": "Sheet1.SchDoc",
+      "connections": [
+        { "designator": "U1", "pin": "9" },
+        { "designator": "R1", "pin": "2" },
+        { "designator": "C1", "pin": "1" }
+      ]
+    },
+    {
+      "name": "GND",
+      "sheet": "Sheet1.SchDoc",
+      "connections": [
+        { "designator": "U1", "pin": "8" },
+        { "designator": "C1", "pin": "2" },
+        { "designator": "J1", "pin": "A12" }
+      ]
+    },
+    {
+      "name": "NRST",
+      "sheet": "Sheet1.SchDoc",
+      "connections": [
+        { "designator": "U1", "pin": "7" },
+        { "designator": "R1", "pin": "1" }
+      ]
+    },
+    {
+      "name": "VBUS",
+      "sheet": "Sheet1.SchDoc",
+      "connections": [{ "designator": "J1", "pin": "A4" }]
+    },
+    {
+      "name": "VBAT",
+      "sheet": "Sheet1.SchDoc",
+      "connections": [{ "designator": "U1", "pin": "1" }]
+    },
+    {
+      "name": "BOOT0",
+      "sheet": "Sheet1.SchDoc",
+      "connections": [{ "designator": "U1", "pin": "44" }]
+    },
+    {
+      "name": "CC1",
+      "sheet": "Sheet1.SchDoc",
+      "connections": [{ "designator": "J1", "pin": "A5" }]
+    },
+    {
+      "name": "CC2",
+      "sheet": "Sheet1.SchDoc",
+      "connections": [{ "designator": "J1", "pin": "B5" }]
+    }
+  ],
+  "ercViolations": [
+    {
+      "severity": "Warning",
+      "message": "Net CC1 has only one pin connection",
+      "object": "CC1",
+      "sheet": "Sheet1.SchDoc"
+    }
+  ],
+  "summary": {
+    "sheetCount": 1,
+    "schComponentCount": 4,
+    "schNetCount": 8,
+    "pcbComponentCount": 2,
+    "pcbNetCount": 2
+  }
+}
