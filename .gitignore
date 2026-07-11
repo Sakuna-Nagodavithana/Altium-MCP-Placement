@@ -63,6 +63,11 @@ HANDOFF-FOR-AI.md
 altium-mcp/inspect/
 altium-mcp/debug_sch_labels.py
 
+# Bundled .NET Framework XML docs (not needed to build)
+EasyEDA-Loader/Framework/
+
+# Cursor / editor local (skills under .cursor/skills are optional; keep ignored by default)
+.idea/
 
 # OS junk
 Thumbs.db
