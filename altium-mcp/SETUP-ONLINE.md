@@ -85,6 +85,7 @@ Restart Cursor after editing.
 - Upload endpoint `/api/connectivity` also requires the same key
 - `/health` is public (status only, no design data)
 - Keep `.env` private; never commit it
+- **This repo does not contain an ngrok authtoken.** You add yours once with `ngrok config add-authtoken …` (stored by ngrok on your PC only)
 - ngrok free URLs change each restart — update `MCP_PUBLIC_URL` and Cursor config
 
 ## Local-only mode (no ngrok)

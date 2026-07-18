@@ -145,10 +145,52 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-local.ps1
 
 In the Altium MCP panel, expand **MCP export & connection**, confirm the URL/key match `.env`, and use **Start Server** if the panel manages it.
 
-Cursor config snippets: see [`altium-mcp/AGENT-CONNECTION.md`](altium-mcp/AGENT-CONNECTION.md).  
-Remote / ngrok: see [`altium-mcp/SETUP-ONLINE.md`](altium-mcp/SETUP-ONLINE.md).
+Cursor config snippets: see [`altium-mcp/AGENT-CONNECTION.md`](altium-mcp/AGENT-CONNECTION.md).
 
-**Never commit `.env`.**
+**Never commit `.env`.** There is **no ngrok authtoken** (and no real API key) in this GitHub repo — only placeholders in `.env.example`. Put your own token on your machine with `ngrok config add-authtoken`.
+
+### 8b. Optional — expose MCP online with ngrok
+
+Local mode (§8) is enough for Cursor on the same PC. Use ngrok only if a remote agent must reach your MCP.
+
+Full write-up: [`altium-mcp/SETUP-ONLINE.md`](altium-mcp/SETUP-ONLINE.md). Short version:
+
+1. Create a free ngrok account: https://dashboard.ngrok.com/signup  
+2. Copy your **authtoken** from: https://dashboard.ngrok.com/get-started/your-authtoken  
+3. Install + authenticate (once):
+
+```powershell
+cd altium-mcp
+powershell -ExecutionPolicy Bypass -File .\scripts\install-ngrok.ps1
+ngrok config add-authtoken YOUR_NGROK_TOKEN
+```
+
+4. Create `.env` from example, generate an MCP API key, set transport for HTTP:
+
+```powershell
+copy .env.example .env
+powershell -ExecutionPolicy Bypass -File .\scripts\generate-api-key.ps1
+# Paste the key into MCP_API_KEY= in .env
+# Set MCP_TRANSPORT=streamable-http
+```
+
+5. Two terminals:
+
+```powershell
+# Terminal 1 — MCP server (online)
+powershell -ExecutionPolicy Bypass -File .\scripts\start-server-online.ps1
+
+# Terminal 2 — public tunnel
+powershell -ExecutionPolicy Bypass -File .\scripts\start-ngrok.ps1
+```
+
+6. Copy the `https://….ngrok-free.app` URL from ngrok → set `MCP_PUBLIC_URL=` in `.env` → restart Terminal 1.  
+7. Point Cursor at that URL + Bearer key (see `cursor-mcp-remote.example.json`).
+
+Notes:
+- Free ngrok URLs change when you restart — update `.env` and Cursor each time.  
+- Authtoken lives in ngrok’s local config (`%LOCALAPPDATA%\ngrok\ngrok.yml`), **not** in this repo.  
+- Do not paste your authtoken into README, commits, or chat logs.
 
 ### Setup troubleshooting
 
