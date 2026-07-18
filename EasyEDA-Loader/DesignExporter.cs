@@ -119,6 +119,29 @@ namespace EasyEDA_Loader
 
             var projectNets = BuildProjectNets(schematicSheets);
             var payload = BuildPayload(project, schematicSheets, pcbData, projectNets);
+
+            // Full MCP DRC (Altium batch + geometric extras) before fab / MCP handoff.
+            if (includePcbRoutingDetails)
+            {
+                try
+                {
+                    var boardForDrc = AltiumApi.GlobalVars.PCBServer.GetCurrentPCBBoard()
+                        ?? PcbDocumentHelper.ResolveProjectPcbBoard();
+                    if (boardForDrc != null)
+                    {
+                        var drc = PcbFullDrc.RunFullCheck(runAltiumBatch: true);
+                        drc.Remove("_issues");
+                        payload["mcpDrc"] = drc;
+                        if (pcbData != null)
+                            pcbData["mcpDrc"] = drc;
+                    }
+                }
+                catch
+                {
+                    // Export still succeeds even if DRC fails.
+                }
+            }
+
             WriteJson(outputPath, payload);
             return outputPath;
         }
@@ -159,12 +182,13 @@ namespace EasyEDA_Loader
 
             return new Dictionary<string, object>
             {
-                ["schemaVersion"] = 5.1,
+                ["schemaVersion"] = 5.2,
                 ["exportFeatures"] = new List<string>
                 {
                     "pcbPadCoordinates",
                     "pcbPadLayerRotation",
                     "pcbKeepoutRegions",
+                    "mcpClearanceDrc",
                 },
                 ["exportedAt"] = DateTime.UtcNow.ToString("o"),
                 ["project"] = new Dictionary<string, object>
@@ -500,18 +524,23 @@ namespace EasyEDA_Loader
         {
             var tracks = new List<Dictionary<string, object>>();
             var vias = new List<Dictionary<string, object>>();
+            var electricalLayers = GetElectricalLayerNames(board);
+            var signalLayers = GetSignalLayerNames(board);
 
-            ExportPcbObjects(board, PcbTObjectId.eTrackObject, maxTracks, obj =>
+            ExportPcbObjects(board, PcbTObjectId.eTrackObject, Math.Max(maxTracks, 12000), obj =>
             {
                 var track = obj as IPCB_Track;
                 if (track == null)
                     return;
 
+                var layerName = ReadLayerName(board, track.GetState_V7Layer());
+                var isElectrical = IsNamedElectricalLayer(layerName, electricalLayers, signalLayers);
                 tracks.Add(new Dictionary<string, object>
                 {
                     ["kind"] = "track",
                     ["net"] = ReadPrimitiveNetName(track as IPCB_Primitive),
-                    ["layer"] = ReadLayerName(track.GetState_V7Layer()),
+                    ["layer"] = layerName,
+                    ["electrical"] = isElectrical,
                     ["widthMils"] = Math.Round(CoordUtils.CoordToMils(track.GetState_Width()), 3),
                     ["widthMm"] = Math.Round(CoordUtils.CoordToMm(track.GetState_Width()), 4),
                     ["x1Mils"] = Math.Round(CoordUtils.CoordToMils(track.GetState_X1()), 3),
@@ -521,7 +550,7 @@ namespace EasyEDA_Loader
                 });
             });
 
-            ExportPcbObjects(board, PcbTObjectId.eViaObject, 2000, obj =>
+            ExportPcbObjects(board, PcbTObjectId.eViaObject, 5000, obj =>
             {
                 var via = obj as IPCB_Via;
                 if (via == null)
@@ -535,8 +564,8 @@ namespace EasyEDA_Loader
                     ["yMils"] = Math.Round(CoordUtils.CoordToMils(via.GetState_YLocation()), 3),
                     ["sizeMils"] = Math.Round(CoordUtils.CoordToMils(via.GetState_Size()), 3),
                     ["holeMils"] = Math.Round(CoordUtils.CoordToMils(via.GetState_HoleSize()), 3),
-                    ["lowLayer"] = ReadLayerName(via.GetState_LowLayer()),
-                    ["highLayer"] = ReadLayerName(via.GetState_HighLayer()),
+                    ["lowLayer"] = ReadLayerName(board, via.GetState_LowLayer()),
+                    ["highLayer"] = ReadLayerName(board, via.GetState_HighLayer()),
                 });
             });
 
@@ -544,6 +573,7 @@ namespace EasyEDA_Loader
             {
                 ["trackCount"] = tracks.Count,
                 ["viaCount"] = vias.Count,
+                ["electricalTrackCount"] = tracks.Count(t => t.TryGetValue("electrical", out var e) && e is true),
                 ["tracks"] = tracks,
                 ["vias"] = vias,
             };
@@ -552,6 +582,8 @@ namespace EasyEDA_Loader
         private static Dictionary<string, object> ExportPcbPlanes(IPCB_Board board, int maxPolygons)
         {
             var polygons = new List<Dictionary<string, object>>();
+            var electricalLayers = GetElectricalLayerNames(board);
+            var signalLayers = GetSignalLayerNames(board);
 
             ExportPcbObjects(board, PcbTObjectId.ePolyObject, maxPolygons, obj =>
             {
@@ -559,11 +591,13 @@ namespace EasyEDA_Loader
                 if (polygon == null)
                     return;
 
+                var layerName = ReadLayerName(board, polygon.GetState_V7Layer());
                 polygons.Add(new Dictionary<string, object>
                 {
                     ["kind"] = "polygon",
                     ["net"] = ReadPrimitiveNetName(polygon as IPCB_Primitive),
-                    ["layer"] = ReadLayerName(polygon.GetState_V7Layer()),
+                    ["layer"] = layerName,
+                    ["electrical"] = IsNamedElectricalLayer(layerName, electricalLayers, signalLayers),
                 });
             });
 
@@ -576,11 +610,43 @@ namespace EasyEDA_Loader
 
         private static Dictionary<string, object> ExportPcbStackup(IPCB_Board board)
         {
+            var layers = new List<Dictionary<string, object>>();
+            foreach (var layer in EnumerateBoardLayers(board, board.Internal_ElectricalLayerIterator, it => it.Internal_AddFilter_ElectricalLayers()))
+            {
+                var name = SafeText(board.LayerName(layer));
+                layers.Add(new Dictionary<string, object>
+                {
+                    ["name"] = name,
+                    ["kind"] = "electrical",
+                });
+            }
+
+            foreach (var layer in EnumerateBoardLayers(board, board.Internal_SignalLayerIterator, it => it.Internal_AddFilter_SignalLayers()))
+            {
+                var name = SafeText(board.LayerName(layer));
+                if (layers.Any(l => string.Equals(SafeText(l["name"]?.ToString()), name, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+                layers.Add(new Dictionary<string, object>
+                {
+                    ["name"] = name,
+                    ["kind"] = "signal",
+                });
+            }
+
+            foreach (var layer in EnumerateBoardLayers(board, board.Internal_InternalPlaneLayerIterator, it => it.Internal_AddFilter_InternalPlaneLayers()))
+            {
+                var name = SafeText(board.LayerName(layer));
+                layers.Add(new Dictionary<string, object>
+                {
+                    ["name"] = name,
+                    ["kind"] = "plane",
+                });
+            }
+
             return new Dictionary<string, object>
             {
-                ["layerCount"] = 0,
-                ["layers"] = new List<Dictionary<string, object>>(),
-                ["note"] = "Use track/plane layer names for validation; full stackup metadata varies by Altium version.",
+                ["layerCount"] = layers.Count,
+                ["layers"] = layers,
             };
         }
 
@@ -663,16 +729,162 @@ namespace EasyEDA_Loader
 
         private static string ReadPrimitiveNetName(IPCB_Primitive primitive)
         {
-            if (primitive?.Internal_GetState_Net() is IPCB_Net net)
-                return SafeText(net.GetState_Name());
+            if (primitive == null)
+                return string.Empty;
+
+            try
+            {
+                if (primitive.Internal_GetState_Net() is IPCB_Net net && net != null)
+                    return SafeText(net.GetState_Name());
+            }
+            catch
+            {
+                // Fall through to alternate accessors used by some Altium SDK builds.
+            }
+
+            try
+            {
+                var method = primitive.GetType().GetMethod("GetState_Net");
+                if (method?.Invoke(primitive, null) is IPCB_Net net2 && net2 != null)
+                    return SafeText(net2.GetState_Name());
+            }
+            catch
+            {
+                // Ignore and return empty.
+            }
+
             return string.Empty;
         }
 
-        private static string ReadLayerName(object layer)
+        private static string ReadLayerName(IPCB_Board board, object layer)
         {
             if (layer == null)
                 return string.Empty;
+
+            try
+            {
+                if (layer is IV7_Layer v7Layer)
+                {
+                    var named = SafeText(board.LayerName(v7Layer));
+                    if (!string.IsNullOrWhiteSpace(named) &&
+                        !named.StartsWith("PCB.V7_Layer", StringComparison.OrdinalIgnoreCase))
+                        return named;
+                }
+            }
+            catch
+            {
+                // Fall through.
+            }
+
+            try
+            {
+                var method = board.GetType().GetMethod("LayerName", new[] { layer.GetType() });
+                if (method != null)
+                {
+                    var named = SafeText(method.Invoke(board, new[] { layer })?.ToString());
+                    if (!string.IsNullOrWhiteSpace(named) &&
+                        !named.StartsWith("PCB.V7_Layer", StringComparison.OrdinalIgnoreCase))
+                        return named;
+                }
+            }
+            catch
+            {
+                // Fall through.
+            }
+
             return SafeText(layer.ToString());
+        }
+
+        private static HashSet<string> GetElectricalLayerNames(IPCB_Board board)
+        {
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var layer in EnumerateBoardLayers(board, board.Internal_ElectricalLayerIterator, it => it.Internal_AddFilter_ElectricalLayers()))
+            {
+                var name = SafeText(board.LayerName(layer));
+                if (!string.IsNullOrWhiteSpace(name))
+                    names.Add(name);
+            }
+            return names;
+        }
+
+        private static HashSet<string> GetSignalLayerNames(IPCB_Board board)
+        {
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var layer in EnumerateBoardLayers(board, board.Internal_SignalLayerIterator, it => it.Internal_AddFilter_SignalLayers()))
+            {
+                var name = SafeText(board.LayerName(layer));
+                if (!string.IsNullOrWhiteSpace(name))
+                    names.Add(name);
+            }
+            return names;
+        }
+
+        private static IEnumerable<IV7_Layer> EnumerateBoardLayers(
+            IPCB_Board board,
+            Func<object> createIterator,
+            Action<IPCB_LayerIterator> configure)
+        {
+            var layers = new List<IV7_Layer>();
+            object iteratorObj = null;
+            try
+            {
+                iteratorObj = createIterator();
+                if (iteratorObj is not IPCB_LayerIterator iterator)
+                    return layers;
+
+                configure(iterator);
+                if (!iterator.First())
+                    return layers;
+
+                do
+                {
+                    var layer = iterator.Internal_Layer();
+                    if (layer != null)
+                        layers.Add(layer);
+                }
+                while (iterator.Next());
+            }
+            catch
+            {
+                // Some Altium builds expose different iterator helpers; leave empty.
+            }
+
+            return layers;
+        }
+
+        private static bool IsNamedElectricalLayer(
+            string layerName,
+            HashSet<string> electricalLayers,
+            HashSet<string> signalLayers)
+        {
+            if (string.IsNullOrWhiteSpace(layerName))
+                return false;
+
+            if (electricalLayers.Contains(layerName) || signalLayers.Contains(layerName))
+                return true;
+
+            var n = layerName.ToLowerInvariant();
+            if (n.Contains("mechanical") ||
+                n.Contains("overlay") ||
+                n.Contains("paste") ||
+                n.Contains("solder") ||
+                n.Contains("keep") ||
+                n.Contains("assembly") ||
+                n.Contains("courtyard") ||
+                n.Contains("dimension") ||
+                n.Contains("drill") ||
+                n.Contains("3d") ||
+                n.StartsWith("pcb.v7_layer"))
+                return false;
+
+            return n.Contains("top") ||
+                   n.Contains("bottom") ||
+                   n.Contains("signal") ||
+                   n.Contains("mid") ||
+                   n.Contains("plane") ||
+                   n.Contains("power") ||
+                   n.Contains("gnd") ||
+                   n.Contains("ground");
         }
 
         private static Dictionary<string, object> ReadSchematicPlacement(ISch_Component component)

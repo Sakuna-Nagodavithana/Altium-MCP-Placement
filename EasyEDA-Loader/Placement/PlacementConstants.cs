@@ -117,6 +117,36 @@ namespace EasyEDA_Loader.Placement
             return text.Contains("gnd") && text.Length <= 6;
         }
 
+        /// <summary>GND / return plane nets — place a via nearby; do not use as a placement magnet.</summary>
+        public static bool IsGndNet(string netName)
+        {
+            var text = (netName ?? string.Empty).Trim().ToLowerInvariant();
+            if (string.IsNullOrEmpty(text))
+                return false;
+            if (new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                { "gnd", "agnd", "dgnd", "pgnd", "vss" }.Contains(text))
+            {
+                return true;
+            }
+
+            return IsGlobalRail(text) && text.Contains("gnd");
+        }
+
+        /// <summary>Power rails that typically live on an internal plane (via to mid-layer).</summary>
+        public static bool IsPowerPlaneNet(string netName)
+        {
+            var text = (netName ?? string.Empty).Trim().ToLowerInvariant();
+            if (string.IsNullOrEmpty(text) || IsGndNet(text))
+                return false;
+            if (GlobalRailNames.Contains(text))
+                return true;
+            return LooksLikePowerNet(text);
+        }
+
+        /// <summary>GND or power plane — discard as a placement pull; via to mid-layer instead.</summary>
+        public static bool IsPlaneNet(string netName) =>
+            IsGndNet(netName) || IsPowerPlaneNet(netName);
+
         public static bool IsLocalNetName(string netName)
         {
             var text = (netName ?? string.Empty).Trim();
@@ -125,9 +155,14 @@ namespace EasyEDA_Loader.Placement
             var upper = text.ToUpperInvariant();
             return upper.StartsWith("NETIC", StringComparison.Ordinal) ||
                    upper.StartsWith("NETC", StringComparison.Ordinal) ||
-                   upper.StartsWith("NETR", StringComparison.Ordinal);
+                   upper.StartsWith("NETR", StringComparison.Ordinal) ||
+                   upper.StartsWith("NETU", StringComparison.Ordinal);
         }
 
+        /// <summary>
+        /// Decoupling = capacitor between a power rail and GND (not AC-coupling / filter caps
+        /// between two signal nets). Target net must be one of the two sides.
+        /// </summary>
         public static bool IsDecouplingCap(JObject component, string netName)
         {
             var designator = JsonStr(component?["designator"]).Trim().ToUpperInvariant();
@@ -146,18 +181,22 @@ namespace EasyEDA_Loader.Placement
                 return false;
 
             var target = (netName ?? string.Empty).Trim();
-            var hasTarget = pinNets.Any(net => net == target);
-            var hasGnd = pinNets.Any(net => IsGlobalRail(net) && net.ToLowerInvariant().Contains("gnd")) ||
-                         pinNets.Any(pin => new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "gnd", "vss", "agnd" }.Contains(pin));
-            return hasTarget && hasGnd;
+            var hasTarget = pinNets.Any(net =>
+                string.Equals(net, target, StringComparison.OrdinalIgnoreCase));
+            var hasGnd = pinNets.Any(IsGndNet);
+            var hasPower = pinNets.Any(IsPowerPlaneNet);
+            return hasTarget && hasGnd && hasPower;
         }
 
         public static bool LooksLikePowerNet(string netName)
         {
             var text = (netName ?? string.Empty).Trim().ToLowerInvariant();
-            if (string.IsNullOrEmpty(text) || IsGlobalRail(text))
+            if (string.IsNullOrEmpty(text) || IsGndNet(text))
                 return false;
-            return new[] { "vcc", "vdd", "vbat", "vin", "3v3", "1v8", "2v5" }.Any(text.Contains);
+            if (GlobalRailNames.Contains(text))
+                return true;
+            return new[] { "vcc", "vdd", "vbat", "vin", "vout", "vbus", "3v3", "1v8", "2v5", "5v", "12v" }
+                .Any(text.Contains);
         }
 
         public static IEnumerable<JObject> NetMembers(JObject net)
@@ -224,8 +263,13 @@ namespace EasyEDA_Loader.Placement
         public static int NetSpecificity(string netName)
         {
             var text = (netName ?? string.Empty).Trim();
-            if (string.IsNullOrEmpty(text) || IsGlobalRail(text))
-                return text.ToLowerInvariant().Contains("gnd") ? 0 : 20;
+            if (string.IsNullOrEmpty(text))
+                return 0;
+            // Plane nets are never placement magnets — signal / local nets win.
+            if (IsGndNet(text))
+                return 0;
+            if (IsPowerPlaneNet(text))
+                return 15;
             if (IsLocalNetName(text))
                 return 100;
             return 80;

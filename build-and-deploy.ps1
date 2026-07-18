@@ -121,6 +121,15 @@ foreach ($entry in $deps.GetEnumerator()) {
     Copy-Item $source (Join-Path $DeployDir $entry.Key) -Force
 }
 
+# JLCPCB recommended stackups for Stackup Advisor (next to DLL under fab/recommended)
+$fabRecommended = Join-Path $Root "fab\recommended"
+$deployFab = Join-Path $DeployDir "fab\recommended"
+if (Test-Path $fabRecommended) {
+    New-Item -ItemType Directory -Force -Path $deployFab | Out-Null
+    Copy-Item (Join-Path $fabRecommended "*") $deployFab -Force
+    Write-Host "==> Bundled fab/recommended stackups into deploy package"
+}
+
 $staleDeps = @(
     "System.Text.Json.dll",
     "System.Text.Encodings.Web.dll",
@@ -175,7 +184,7 @@ if (Test-Path $LegacyExtensionsDir) {
 }
 
 Write-Host "==> Installing into Altium Extensions folder..."
-Copy-Item (Join-Path $DeployDir "*") $ExtensionsDir -Force
+Copy-Item (Join-Path $DeployDir "*") $ExtensionsDir -Force -Recurse
 foreach ($stale in $staleDeps) {
     Remove-Item (Join-Path $ExtensionsDir $stale) -Force -ErrorAction SilentlyContinue
 }

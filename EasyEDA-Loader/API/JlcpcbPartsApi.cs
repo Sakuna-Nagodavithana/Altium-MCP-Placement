@@ -96,7 +96,7 @@ namespace EasyEDA_Loader
                 Model = SafeString(row, "componentModelEn"),
                 Brand = SafeString(row, "componentBrandEn"),
                 Category = SafeString(row, "secondSortName"),
-                Stock = SafeInt(row, "stockCount"),
+                Stock = Math.Max(SafeInt(row, "stockCount"), SafeInt(row, "overseasStockCount")),
                 UnitPrice = unitPrice,
                 DatasheetUrl = datasheet,
                 Mpn = SafeString(row, "componentModelEn"),
@@ -130,19 +130,80 @@ namespace EasyEDA_Loader
 
         /// <summary>
         /// Look up a single JLCPCB part by its LCSC part number (e.g. C2040).
-        /// Returns the Basic part if one exists; otherwise returns the first match.
+        /// Uses the component-detail endpoint (reliable stockCount), then falls back to search.
         /// </summary>
         public async Task<JlcpcbPart> LookupByLcscAsync(string lcsc, CancellationToken cancellationToken)
         {
-            var results = await SearchAsync(keyword: lcsc, cancellationToken: cancellationToken);
+            if (string.IsNullOrWhiteSpace(lcsc))
+                return null;
+
+            var normalized = lcsc.Trim().ToUpperInvariant();
+            if (!normalized.StartsWith("C"))
+                normalized = "C" + normalized;
+
+            var detail = await FetchComponentDetailAsync(normalized, cancellationToken);
+            if (detail != null)
+                return detail;
+
+            var results = await SearchAsync(keyword: normalized, cancellationToken: cancellationToken);
             if (results == null || results.Count == 0)
                 return null;
 
-            var exact = results.FirstOrDefault(p => string.Equals(p.Lcsc, lcsc, StringComparison.OrdinalIgnoreCase));
-            if (exact != null)
-                return exact;
+            var exact = results.FirstOrDefault(p => string.Equals(p.Lcsc, normalized, StringComparison.OrdinalIgnoreCase));
+            return exact ?? results[0];
+        }
 
-            return results[0];
+        /// <summary>
+        /// JLCPCB detail API — returns stockCount / overseasStockCount / Basic|Extended.
+        /// This is the reliable source; the list-search endpoint often returns empty lists.
+        /// </summary>
+        public async Task<JlcpcbPart> FetchComponentDetailAsync(string lcsc, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(lcsc))
+                return null;
+
+            var urls = new[]
+            {
+                "https://cart.jlcpcb.com/shoppingCart/smtGood/getComponentDetail?componentCode=" + Uri.EscapeDataString(lcsc),
+                "https://jlcpcb.com/api/overseas-pcb-order/v1/shoppingCart/smtGood/getComponentDetail?componentCode=" + Uri.EscapeDataString(lcsc),
+            };
+
+            foreach (var url in urls)
+            {
+                try
+                {
+                    using (var response = await _httpClient.GetAsync(url, cancellationToken))
+                    {
+                        if (!response.IsSuccessStatusCode)
+                            continue;
+                        var text = await response.Content.ReadAsStringAsync();
+                        var obj = JObject.Parse(text);
+                        var data = obj["data"] as JObject;
+                        if (data == null)
+                            continue;
+                        var mapped = MapRow(data);
+                        if (mapped != null && mapped.Stock <= 0)
+                        {
+                            // Prefer overseas stock when domestic stockCount is missing.
+                            var overseas = SafeInt(data, "overseasStockCount");
+                            if (overseas > 0)
+                                mapped.Stock = overseas;
+                        }
+                        if (mapped != null && !string.IsNullOrWhiteSpace(mapped.Lcsc))
+                            return mapped;
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[JLCPCB] Detail {url}: {ex.Message}");
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -251,8 +312,10 @@ namespace EasyEDA_Loader
                 if (data == null)
                     return new List<JObject>();
 
-                var info = data["componentPageInfo"];
+                // Newer responses put rows under componentPageInfo.list; older under componentList.
                 var rows = data["componentList"] as JArray;
+                if (rows == null || rows.Count == 0)
+                    rows = data["componentPageInfo"]?["list"] as JArray;
                 return rows?.OfType<JObject>().ToList() ?? new List<JObject>();
             }
             catch (OperationCanceledException)

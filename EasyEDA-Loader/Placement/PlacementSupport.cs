@@ -24,7 +24,11 @@ namespace EasyEDA_Loader.Placement
                 var net = PlacementConstants.JsonStr(pinInfo?["net"]).Trim();
                 if (string.IsNullOrEmpty(net) || !passiveNets.Contains(net))
                     continue;
-                if (PlacementConstants.IsGlobalRail(net) && net.ToLowerInvariant().Contains("gnd") && passiveNets.Count > 1)
+                // Mid-layer planes: ignore GND/VCC as link magnets whenever a signal/local
+                // net also ties the passive to the IC. Decaps with only power+GND keep the
+                // power pin link (no non-plane net).
+                var hasNonPlane = passiveNets.Any(n => !PlacementConstants.IsPlaneNet(n));
+                if (hasNonPlane && PlacementConstants.IsPlaneNet(net))
                     continue;
 
                 var layout = pinLayout[pinNumber] as JObject ?? new JObject();
@@ -65,9 +69,11 @@ namespace EasyEDA_Loader.Placement
                 };
             }
 
-            var passiveLower = new HashSet<string>(passiveNets.Select(n => n.ToLowerInvariant()));
-            if (PlacementConstants.JsonStr(component?["designator"]).ToUpperInvariant().StartsWith("C", StringComparison.Ordinal) &&
-                passiveLower.Contains("3v3"))
+            var isDecapCandidate = PlacementConstants.JsonStr(component?["designator"]).ToUpperInvariant()
+                                       .StartsWith("C", StringComparison.Ordinal) &&
+                                   passiveNets.Any(PlacementConstants.IsPowerPlaneNet) &&
+                                   passiveNets.Any(PlacementConstants.IsGndNet);
+            if (isDecapCandidate)
             {
                 var powerCandidates = new List<JObject>();
                 foreach (var prop in icPinIndex.Properties())
@@ -77,7 +83,7 @@ namespace EasyEDA_Loader.Placement
                     var net = PlacementConstants.JsonStr(pinInfo?["net"]).Trim();
                     var pinName = PlacementConstants.JsonStr(pinInfo?["pin_name"]).Trim();
                     var netLower = net.ToLowerInvariant();
-                    if (!new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "3v3", "3.3v", "vcc", "vcc3v3" }.Contains(netLower) &&
+                    if (!PlacementConstants.IsPowerPlaneNet(net) &&
                         !PlacementConstants.PowerPinNamePattern.IsMatch(pinName))
                     {
                         continue;
@@ -124,7 +130,7 @@ namespace EasyEDA_Loader.Placement
                     var primary = powerCandidates[0];
                     return new JObject
                     {
-                        ["primary_net"] = "3v3",
+                        ["primary_net"] = primary["net"],
                         ["primary_ic_pin"] = primary["pin"],
                         ["primary_ic_pin_name"] = primary["pin_name"],
                         ["pin_angle_deg"] = primary["pin_angle_deg"],
@@ -186,8 +192,20 @@ namespace EasyEDA_Loader.Placement
             {
                 if (!designator.StartsWith("C", StringComparison.Ordinal))
                     return Tuple.Create(false, "global_rail_non_cap");
+                if (!PlacementConstants.IsDecouplingCap(component, netName))
+                    return Tuple.Create(false, "global_rail_not_decoupling");
                 if (!schDistance.HasValue || schDistance.Value > maxSchematicDistanceMils)
                     return Tuple.Create(false, "global_rail_far");
+
+                var exclusive = PlacementConstants.ExclusiveToAnchor(net, anchor);
+                var nf = PlacementLayout.ParseCapValueNf(PlacementConstants.JsonStr(component["comment"]));
+                // Bulk caps (>12 µF) on shared rails stick to every IC — only keep if exclusive.
+                if (nf.HasValue && nf.Value > 12000.0 && !exclusive)
+                    return Tuple.Create(false, "global_rail_bulk_shared");
+                // Shared-rail ceramics: require closer schematic proximity than exclusive nets.
+                if (!exclusive && schDistance.Value > maxSchematicDistanceMils * 0.55)
+                    return Tuple.Create(false, "global_rail_shared_far");
+
                 return Tuple.Create(true, "nearby_decoupling");
             }
 

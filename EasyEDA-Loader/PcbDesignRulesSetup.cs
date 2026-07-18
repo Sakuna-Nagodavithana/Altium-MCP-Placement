@@ -29,6 +29,14 @@ namespace EasyEDA_Loader
             ManagedNetClassOrder,
             StringComparer.OrdinalIgnoreCase);
 
+        // Broader RF pin names allowed only when the IC comment already matches an RF transceiver
+        // (avoids substring hits like MCU PA3 / UART_TX on non-RF parts).
+        private static readonly List<string> RfCommentGatedPinTokens = new List<string>
+        {
+            "RF_TX", "RF_RX", "TX_RF", "RX_RF", "RFP", "RFN", "RF_P", "RF_N",
+            "ANTENNA", "PA_OUT", "LNA_IN", "TRX", "RFI", "RFO", "RFIO", "ANT",
+        };
+
         /// <summary>
         /// Classifies nets from the current PCB board using the saved profile + connectivity hints.
         /// Does NOT mutate the board. Safe to call for a preview before Apply.
@@ -80,6 +88,8 @@ namespace EasyEDA_Loader
                 CreateNetClasses(board, normalized);
                 CreateWidthRules(board, profile);
                 CreateClearanceRules(board, profile);
+                CreateViaStyleRules(board, profile);
+                try { DecapFanout.EnsureFanoutControlRule(board); } catch { }
                 if (profile.PlaneRouting?.Enabled == true)
                 {
                     CreateRoutingLayerRule(board, profile.PlaneRouting);
@@ -88,7 +98,8 @@ namespace EasyEDA_Loader
 
                 result.CreatedRules.AddRange(
                     profile.WidthRules.Select(r => r.Name)
-                        .Concat(profile.ClearanceRules.Select(r => r.Name)));
+                        .Concat(profile.ClearanceRules.Select(r => r.Name))
+                        .Concat((profile.ViaStyleRules ?? new List<ViaStyleRuleDefinition>()).Select(r => r.Name)));
                 if (profile.PlaneRouting?.Enabled == true)
                 {
                     result.CreatedRules.Add(profile.PlaneRouting.RuleName);
@@ -211,6 +222,34 @@ namespace EasyEDA_Loader
                         {
                             seed = "HighSpeed";
                             break;
+                        }
+                    }
+
+                    // Comment-gated broader pin tokens: only when the IC comment already
+                    // identifies an RF/HS part (avoids MCU PA3 / UART_TX false positives).
+                    if (seed == null)
+                    {
+                        foreach (var pin in pinsOnNet)
+                        {
+                            if (!componentComment.TryGetValue(pin.Designator, out var comment) ||
+                                string.IsNullOrWhiteSpace(comment))
+                            {
+                                continue;
+                            }
+
+                            if (MatchesTokens(comment, rfDef?.ComponentCommentTokens) &&
+                                MatchesTokens(pin.PinName, RfCommentGatedPinTokens))
+                            {
+                                seed = "RF";
+                                break;
+                            }
+
+                            if (MatchesTokens(comment, hsDef?.ComponentCommentTokens) &&
+                                MatchesTokens(pin.PinName, hsDef?.PinNameTokens))
+                            {
+                                seed = "HighSpeed";
+                                break;
+                            }
                         }
                     }
                 }
@@ -508,6 +547,41 @@ namespace EasyEDA_Loader
                 rule.SetState_Scope2Expression(definition.Scope2Expression ?? "All");
                 rule.SetState_Gap(AltiumApi.MilsToCoord(definition.GapMils));
                 rule.SetState_DRCEnabled(true);
+                board.AddPCBObject(rule);
+            }
+        }
+
+        /// <summary>
+        /// Routing via styles for multilayer fanout / plane stitching.
+        /// Neckdowns are enabled by width rules (min &lt; preferred) so power can taper into pads.
+        /// </summary>
+        private static void CreateViaStyleRules(IPCB_Board board, PcbRulesProfile profile)
+        {
+            var pcbServer = AltiumApi.GlobalVars.PCBServer;
+            foreach (var definition in profile.ViaStyleRules ?? new List<ViaStyleRuleDefinition>())
+            {
+                var rule = pcbServer.Internal_PCBRuleFactory((int)TRuleKind.eRule_RoutingViaStyle) as IPCB_RoutingViaStyleRule;
+                if (rule == null)
+                    throw new InvalidOperationException($"Failed to create via style rule '{definition.Name}'.");
+
+                rule.SetState_Name(definition.Name);
+                rule.SetState_Comment(
+                    "Auto-generated via style for multilayer boards (fanout / plane stitch). " +
+                    "Pair with width min/preferred for neckdowns into pads.");
+                rule.SetState_Scope1Expression(BuildNetClassScope(definition.NetClass));
+                rule.SetState_DRCEnabled(true);
+
+                try { rule.SetState_ViaStyle(TRouteVia.eViaThruHole); } catch { }
+
+                // Altium API historically spells these Prefered* (one 'r').
+                rule.SetState_MinHoleWidth(AltiumApi.MilsToCoord(definition.MinHoleMils));
+                rule.SetState_MaxHoleWidth(AltiumApi.MilsToCoord(definition.MaxHoleMils));
+                rule.SetState_PreferedHoleWidth(AltiumApi.MilsToCoord(definition.PreferHoleMils));
+
+                rule.SetState_MinWidth(AltiumApi.MilsToCoord(definition.MinDiameterMils));
+                rule.SetState_MaxWidth(AltiumApi.MilsToCoord(definition.MaxDiameterMils));
+                rule.SetState_PreferedWidth(AltiumApi.MilsToCoord(definition.PreferDiameterMils));
+
                 board.AddPCBObject(rule);
             }
         }

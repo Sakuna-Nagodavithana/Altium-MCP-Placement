@@ -33,20 +33,32 @@ namespace EasyEDA_Loader
         private Button generatePlanButton;
         private Button applyPlanButton;
         private Button anchorClustersButton;
+        private Button createRoomsButton;
+        private Button fanoutDecapButton;
+        private Button floorplanPreviewButton;
+        private Button smartPlaceButton;
         private Button resizeDesignatorsButton;
         private TextBox designatorHeightText;
         private TextBox designatorWidthText;
         private Button setupPcbRulesButton;
         private Button openPcbRulesProfileButton;
+        private Button runClearanceDrcButton;
+        private Button viaStitchButton;
+        private Button designWorkflowButton;
+        private Button stackupAdvisorButton;
+        private Button boardNeedsButton;
+        private Button routePriorityButton;
         private TextBlock pcbRulesStatusText;
+        private TextBlock postRouteStatusText;
+        private TextBlock workflowStatusText;
         private McpSettings settings;
 
         public McpControlWindow()
         {
             Title = "Altium MCP Control Panel";
-            Height = 620;
+            Height = 720;
             Width = 760;
-            MinHeight = 480;
+            MinHeight = 520;
             MinWidth = 680;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             ShowInTaskbar = false;
@@ -84,9 +96,10 @@ namespace EasyEDA_Loader
             var statusBorder = new Border
             {
                 Padding = new Thickness(12),
-                BorderBrush = System.Windows.Media.Brushes.DimGray,
+                BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x90, 0xA4, 0xAE)),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(6),
+                CornerRadius = new CornerRadius(8),
+                Background = System.Windows.Media.Brushes.White,
                 Margin = new Thickness(0, 0, 0, 12),
                 Child = new Grid
                 {
@@ -96,7 +109,7 @@ namespace EasyEDA_Loader
                         {
                             Children =
                             {
-                                new TextBlock { Text = "Server status", FontWeight = FontWeights.SemiBold },
+                                new TextBlock { Text = "MCP server", FontWeight = FontWeights.SemiBold },
                                 serverStatusText,
                                 exportStatusText,
                             },
@@ -131,11 +144,21 @@ namespace EasyEDA_Loader
             spacingMilsText = new TextBox { Text = "55" };
             maxRadiusText = new TextBox { Text = "900", Margin = new Thickness(0, 0, 12, 0) };
             maxSchDistanceText = new TextBox { Text = "2500" };
-            clusterAllIcPartsButton = new Button { Content = "Auto-Place All Components", Width = 260, Height = 36, Margin = new Thickness(0, 0, 0, 8), FontWeight = FontWeights.SemiBold, ToolTip = "One click: generates the plan for every IC, applies pin-accurate placement (decoupling caps on bottom, chains in signal order), keeps every part independently moveable, and resizes designators." };
+            floorplanPreviewButton = new Button
+            {
+                Content = "Floorplan Preview…",
+                Width = 200,
+                Height = 40,
+                Margin = new Thickness(0, 0, 10, 0),
+                FontWeight = FontWeights.SemiBold,
+                ToolTip = "Preview different board layouts (zones for connectors / power / MCU / RF). Choose auto size, mm size, or DXF outline, then Apply.",
+            };
+            floorplanPreviewButton.Click += FloorplanPreviewButton_Click;
+            clusterAllIcPartsButton = new Button { Content = "Auto-Place All Components", Width = 260, Height = 36, Margin = new Thickness(0, 0, 0, 8), FontWeight = FontWeights.SemiBold, ToolTip = "One click: plan for every IC, pin-accurate placement (decoupling caps on TOP for multilayer boards), keeps parts independently moveable, resizes designators." };
             clusterAllIcPartsButton.Click += ClusterAllIcPartsButton_Click;
             optimizeBoardButton = new Button { Content = "Optimize Board (Force + Anneal)", Width = 260, Height = 32, Margin = new Thickness(0, 0, 0, 8), ToolTip = "Two-phase optimizer: force-directed HPWL springs, then simulated annealing that translates, rotates (±90°), and swaps passives to pack tighter with ~28 mil clearance. Locks connectors/ICs. Run after Auto-Place." };
             optimizeBoardButton.Click += OptimizeBoardButton_Click;
-            clusterIcPartsButton = new Button { Content = "Place One IC", Width = 220, Height = 32, Margin = new Thickness(0, 0, 0, 10) };
+            clusterIcPartsButton = new Button { Content = "Place One IC", Width = 120, Height = 32, Margin = new Thickness(0, 0, 8, 0) };
             clusterIcPartsButton.Click += ClusterIcPartsButton_Click;
             placementStatusText = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10) };
             generatePlanButton = new Button { Content = "Generate Plan Only", Width = 140, Height = 28, Margin = new Thickness(0, 0, 8, 0) };
@@ -144,6 +167,25 @@ namespace EasyEDA_Loader
             applyPlanButton.Click += ApplyPlanButton_Click;
             anchorClustersButton = new Button { Content = "Anchor Clusters (Union)", Width = 160, Height = 28, ToolTip = "Group each IC + its support parts into an Altium Union so you can drag the whole cluster as one unit. Re-run any time after a plan is applied." };
             anchorClustersButton.Click += AnchorClustersButton_Click;
+            createRoomsButton = new Button
+            {
+                Content = "Create Rooms",
+                Width = 120,
+                Height = 28,
+                Margin = new Thickness(0, 0, 8, 0),
+                FontWeight = FontWeights.SemiBold,
+                ToolTip = "Create Altium Room Definition (confinement) rules around each IC cluster — how pros lock floorplan blocks.",
+            };
+            createRoomsButton.Click += CreateRoomsButton_Click;
+            fanoutDecapButton = new Button
+            {
+                Content = "Fanout Decap Vias",
+                Width = 140,
+                Height = 28,
+                FontWeight = FontWeights.SemiBold,
+                ToolTip = "Place GND/power vias next to decoupling and IC power pads (short plane fanout).",
+            };
+            fanoutDecapButton.Click += FanoutDecapButton_Click;
             resizeDesignatorsButton = new Button { Content = "Resize Designators", Width = 140, Height = 28, ToolTip = "Shrink every component designator (R1, C2, ...) to a uniform small size so the board isn't cluttered." };
             resizeDesignatorsButton.Click += ResizeDesignatorsButton_Click;
             designatorHeightText = new TextBox { Text = "20", Width = 40, ToolTip = "Designator text height in mils" };
@@ -153,40 +195,175 @@ namespace EasyEDA_Loader
             openPcbRulesProfileButton = new Button { Content = "Edit Rules Profile", Width = 140, Height = 28, Margin = new Thickness(0, 0, 8, 0) };
             openPcbRulesProfileButton.Click += OpenPcbRulesProfileButton_Click;
             pcbRulesStatusText = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10) };
+            runClearanceDrcButton = new Button
+            {
+                Content = "Full PCB DRC (Errors)",
+                Width = 180,
+                Height = 34,
+                Margin = new Thickness(0, 0, 10, 0),
+                FontWeight = FontWeights.SemiBold,
+                ToolTip = "Runs Altium batch DRC + MCP checks (power clearance, pad↔track, neckdown/fab width, via↔pad). Opens an error list with Jump.",
+            };
+            runClearanceDrcButton.Click += RunClearanceDrcButton_Click;
+            viaStitchButton = new Button
+            {
+                Content = "Stitch Vias (RF / Clocks)",
+                Width = 200,
+                Height = 34,
+                FontWeight = FontWeights.SemiBold,
+                ToolTip = "After routing: place GND fence/stitch vias along RF and HighSpeed (clock) nets. Ctrl+Z to undo.",
+            };
+            viaStitchButton.Click += ViaStitchButton_Click;
+            postRouteStatusText = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0) };
+            designWorkflowButton = new Button
+            {
+                Content = "Expert Process Guide",
+                Width = 170,
+                Height = 34,
+                Margin = new Thickness(0, 0, 10, 0),
+                FontWeight = FontWeights.SemiBold,
+                ToolTip = "How experts go schematic→fab: checklist, playbook, and RF→HS→PWR→Logic route priority.",
+            };
+            designWorkflowButton.Click += (_, __) =>
+            {
+                var w = new DesignWorkflowWindow { Owner = this };
+                w.Show();
+                RefreshWorkflowStatus();
+            };
+            stackupAdvisorButton = new Button
+            {
+                Content = "Stackup Advisor (JLCPCB)",
+                Width = 190,
+                Height = 34,
+                Margin = new Thickness(0, 0, 10, 0),
+                FontWeight = FontWeights.SemiBold,
+                ToolTip = "Pick JLCPCB 2/4/6L stackup, copy .stackupx files, check current PCB layer count.",
+            };
+            stackupAdvisorButton.Click += (_, __) =>
+            {
+                var w = new StackupAdvisorWindow { Owner = this };
+                w.Show();
+                RefreshWorkflowStatus();
+            };
+            boardNeedsButton = new Button
+            {
+                Content = "Board Needs",
+                Width = 120,
+                Height = 34,
+                Margin = new Thickness(0, 0, 10, 0),
+                FontWeight = FontWeights.SemiBold,
+                ToolTip = "From MCU/RF/USB/power: recommend layers/stackup, impedance, via sizes, and heat actions.",
+            };
+            boardNeedsButton.Click += (_, __) =>
+            {
+                new BoardNeedsWindow { Owner = this }.Show();
+            };
+            routePriorityButton = new Button
+            {
+                Content = "Route Priority",
+                Width = 120,
+                Height = 34,
+                FontWeight = FontWeights.SemiBold,
+                ToolTip = "Live net list in expert order: RF → HighSpeed → PWR → Logic. Keep open while Interactive Routing.",
+            };
+            routePriorityButton.Click += (_, __) =>
+            {
+                new RoutingPriorityWindow { Owner = this }.Show();
+            };
+            workflowStatusText = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0), Opacity = 0.9 };
+
+            smartPlaceButton = new Button
+            {
+                Content = "▶  Smart Place (recommended)",
+                Height = 44,
+                FontWeight = FontWeights.SemiBold,
+                FontSize = 14,
+                Margin = new Thickness(0, 0, 0, 8),
+                ToolTip = "Research-backed pipeline: Board Needs → best floorplan (wirelength score) → pin-accurate Auto-Place → Fanout → Rooms. Like Altium rooms + modern force/SA placers.",
+                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1B, 0x5E, 0x20)),
+                Foreground = System.Windows.Media.Brushes.White,
+            };
+            smartPlaceButton.Click += SmartPlaceButton_Click;
+
+            // Resize primary tools for card layout
+            floorplanPreviewButton.Width = double.NaN;
+            floorplanPreviewButton.Height = 34;
+            floorplanPreviewButton.Margin = new Thickness(0, 0, 8, 0);
+            floorplanPreviewButton.HorizontalAlignment = HorizontalAlignment.Stretch;
+            clusterAllIcPartsButton.Width = double.NaN;
+            clusterAllIcPartsButton.Height = 34;
+            clusterAllIcPartsButton.Margin = new Thickness(0, 0, 8, 0);
+            optimizeBoardButton.Width = double.NaN;
+            optimizeBoardButton.Height = 34;
+            optimizeBoardButton.Margin = new Thickness(0, 0, 0, 0);
+            fanoutDecapButton.Width = 150;
+            fanoutDecapButton.Height = 32;
+            fanoutDecapButton.Margin = new Thickness(0, 0, 8, 0);
+            createRoomsButton.Width = 130;
+            createRoomsButton.Height = 32;
+            setupPcbRulesButton.Width = 180;
+            setupPcbRulesButton.Height = 30;
+            boardNeedsButton.Width = 110;
+            boardNeedsButton.Height = 30;
+            boardNeedsButton.Margin = new Thickness(0, 0, 8, 0);
+            stackupAdvisorButton.Width = 160;
+            stackupAdvisorButton.Height = 30;
+            stackupAdvisorButton.Margin = new Thickness(0, 0, 8, 0);
+            designWorkflowButton.Width = 150;
+            designWorkflowButton.Height = 30;
+            designWorkflowButton.Margin = new Thickness(0, 0, 8, 0);
+            routePriorityButton.Width = 120;
+            routePriorityButton.Height = 30;
+            routePriorityButton.Margin = new Thickness(0, 0, 0, 0);
 
             var bodyPanel = new StackPanel();
 
-            // --- Workflow: Placement (primary) ---
-            bodyPanel.Children.Add(MakeSectionTitle("1. Place components"));
-            bodyPanel.Children.Add(MakeHint(
-                "Recommended: Auto-Place first (IC clusters + rotation). Then Optimize Board (annealing + 90° turns) for denser packing. Ctrl+Z undoes."));
+            // STEP 1 — Prep
+            var prepLinks = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+            prepLinks.Children.Add(boardNeedsButton);
+            prepLinks.Children.Add(stackupAdvisorButton);
+            prepLinks.Children.Add(setupPcbRulesButton);
+            prepLinks.Children.Add(openPcbRulesProfileButton);
+            var prepExtra = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
+            prepExtra.Children.Add(designWorkflowButton);
+            prepExtra.Children.Add(routePriorityButton);
+            var prepStack = new StackPanel();
+            prepStack.Children.Add(prepLinks);
+            prepStack.Children.Add(prepExtra);
+            prepStack.Children.Add(workflowStatusText);
+            bodyPanel.Children.Add(MakeStepCard(
+                "1", "Prep — stackup & rules",
+                "Pros fix fab stackup and net classes before moving parts. Board Needs reads MCU/RF/USB/power.",
+                prepStack));
 
-            var primaryRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
-            clusterAllIcPartsButton.Width = 240;
-            clusterAllIcPartsButton.Height = 40;
-            clusterAllIcPartsButton.Margin = new Thickness(0, 0, 10, 0);
-            optimizeBoardButton.Width = 240;
-            optimizeBoardButton.Height = 40;
-            optimizeBoardButton.Margin = new Thickness(0, 0, 0, 0);
-            primaryRow.Children.Add(clusterAllIcPartsButton);
-            primaryRow.Children.Add(optimizeBoardButton);
-            bodyPanel.Children.Add(primaryRow);
+            // STEP 2 — Place (hero)
+            var placeStack = new StackPanel();
+            placeStack.Children.Add(smartPlaceButton);
+            placeStack.Children.Add(new TextBlock
+            {
+                Text = "Or step through manually (same order Altium rooms / academic placers use):",
+                Opacity = 0.75,
+                Margin = new Thickness(0, 0, 0, 6),
+                TextWrapping = TextWrapping.Wrap,
+            });
+            var placeRow1 = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+            placeRow1.Children.Add(floorplanPreviewButton);
+            placeRow1.Children.Add(clusterAllIcPartsButton);
+            placeRow1.Children.Add(optimizeBoardButton);
+            placeStack.Children.Add(placeRow1);
+            var placeRow2 = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+            placeRow2.Children.Add(fanoutDecapButton);
+            placeRow2.Children.Add(createRoomsButton);
+            placeRow2.Children.Add(clusterIcPartsButton);
+            placeStack.Children.Add(placeRow2);
+            placeStack.Children.Add(placementStatusText);
+            placeStack.Children.Add(pcbRulesStatusText);
+            bodyPanel.Children.Add(MakeStepCard(
+                "2", "Place — floorplan → pins → fanout → rooms",
+                "Smart Place runs the full chain. Floorplan Preview lets you pick among scored layouts (★ = shortest estimated nets).",
+                placeStack));
 
-            var secondaryRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
-            clusterIcPartsButton.Width = 140;
-            clusterIcPartsButton.Height = 30;
-            clusterIcPartsButton.Margin = new Thickness(0, 0, 8, 0);
-            setupPcbRulesButton.Width = 180;
-            setupPcbRulesButton.Height = 30;
-            setupPcbRulesButton.Margin = new Thickness(0, 0, 8, 0);
-            secondaryRow.Children.Add(clusterIcPartsButton);
-            secondaryRow.Children.Add(setupPcbRulesButton);
-            secondaryRow.Children.Add(openPcbRulesProfileButton);
-            bodyPanel.Children.Add(secondaryRow);
-            bodyPanel.Children.Add(placementStatusText);
-            bodyPanel.Children.Add(pcbRulesStatusText);
-
-            // --- Options expander ---
+            // Options / power user
             var optionsPanel = new StackPanel();
             optionsPanel.Children.Add(CreatePlacementRow("Anchor IC", anchorIcText, "Spacing (mils)", spacingMilsText));
             optionsPanel.Children.Add(CreatePlacementRow("Max radius", maxRadiusText, "Sch distance", maxSchDistanceText));
@@ -198,21 +375,28 @@ namespace EasyEDA_Loader
             resizeRow.Children.Add(designatorWidthText);
             resizeRow.Children.Add(new TextBlock { Text = "mil", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 0, 0) });
             optionsPanel.Children.Add(resizeRow);
-            bodyPanel.Children.Add(MakeExpander("Placement options", optionsPanel, isExpanded: false));
-
-            // --- Advanced expander ---
-            var advancedPanel = new StackPanel();
-            advancedPanel.Children.Add(MakeHint("Manual steps for debugging. Prefer Auto-Place / Optimize above."));
-            var planButtons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+            var planButtons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
             planButtons.Children.Add(generatePlanButton);
             planButtons.Children.Add(applyPlanButton);
             planButtons.Children.Add(anchorClustersButton);
-            advancedPanel.Children.Add(planButtons);
-            bodyPanel.Children.Add(MakeExpander("Advanced (manual steps)", advancedPanel, isExpanded: false));
+            optionsPanel.Children.Add(planButtons);
+            bodyPanel.Children.Add(MakeExpander("Placement options & plan tools", optionsPanel, isExpanded: false));
 
-            // --- Connection / export expander ---
+            // STEP 3 — Verify
+            var verifyRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+            verifyRow.Children.Add(runClearanceDrcButton);
+            verifyRow.Children.Add(viaStitchButton);
+            var verifyStack = new StackPanel();
+            verifyStack.Children.Add(verifyRow);
+            verifyStack.Children.Add(postRouteStatusText);
+            bodyPanel.Children.Add(MakeStepCard(
+                "3", "Verify — DRC & stitch",
+                "After routing: Full DRC (Altium + MCP extras). Stitch GND along RF/clocks.",
+                verifyStack));
+
+            // MCP / export (collapsed)
             var connectPanel = new StackPanel();
-            connectPanel.Children.Add(MakeHint("Opens with the panel. Cursor uses this export for MCP tools."));
+            connectPanel.Children.Add(MakeHint("Auto-exports when this panel opens. Used by Cursor MCP tools."));
             connectPanel.Children.Add(CreateFieldGrid("Export file", exportPathText));
             connectPanel.Children.Add(CreateFieldGrid("MCP URL", serverUrlText, 8));
             connectPanel.Children.Add(CreateFieldGrid("API key", apiKeyText, 8));
@@ -224,14 +408,15 @@ namespace EasyEDA_Loader
             exportButtons.Children.Add(openFolderButton);
             exportButtons.Children.Add(openSettingsButton);
             connectPanel.Children.Add(exportButtons);
-            bodyPanel.Children.Add(MakeExpander("2. Export & MCP connection", connectPanel, isExpanded: false));
+            bodyPanel.Children.Add(MakeExpander("MCP export & connection", connectPanel, isExpanded: false));
 
             var bodyBorder = new Border
             {
                 Padding = new Thickness(14),
-                BorderBrush = System.Windows.Media.Brushes.DimGray,
+                BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x90, 0xA4, 0xAE)),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(6),
+                CornerRadius = new CornerRadius(8),
+                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFA, 0xFB, 0xFC)),
                 Child = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = bodyPanel },
             };
             Grid.SetRow(bodyBorder, 2);
@@ -243,7 +428,7 @@ namespace EasyEDA_Loader
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 12, 0),
                 Opacity = 0.75,
-                Text = "JLCPCB parts: use EasyEDA Component Loader. Placement: Auto-Place → Optimize.",
+                Text = "Still nudge RF/antenna by hand. Smart Place ≈ Altium rooms + pin-accurate clusters.",
             });
             var closeButton = new Button { Content = "Close", Width = 80, Height = 28, IsCancel = true };
             closeButton.Click += CloseButton_Click;
@@ -251,7 +436,66 @@ namespace EasyEDA_Loader
             Grid.SetRow(footer, 3);
             root.Children.Add(footer);
 
+            // Update header copy
+            header.Children.Clear();
+            header.Children.Add(new TextBlock { Text = "Altium MCP Placement", FontSize = 20, FontWeight = FontWeights.SemiBold });
+            header.Children.Add(new TextBlock
+            {
+                Text = "Professional flow in one panel: prep → Smart Place → verify. Built like Altium rooms + modern force/SA placers.",
+                Margin = new Thickness(0, 6, 0, 0),
+                TextWrapping = TextWrapping.Wrap,
+                Opacity = 0.85,
+            });
+
             Content = root;
+        }
+
+        private static Border MakeStepCard(string step, string title, string hint, UIElement content)
+        {
+            var stack = new StackPanel();
+            var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+            titleRow.Children.Add(new Border
+            {
+                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x37, 0x47, 0x4F)),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(8, 2, 8, 2),
+                Margin = new Thickness(0, 0, 8, 0),
+                Child = new TextBlock
+                {
+                    Text = step,
+                    Foreground = System.Windows.Media.Brushes.White,
+                    FontWeight = FontWeights.SemiBold,
+                    FontSize = 12,
+                },
+            });
+            titleRow.Children.Add(new TextBlock
+            {
+                Text = title,
+                FontWeight = FontWeights.SemiBold,
+                FontSize = 14,
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+            stack.Children.Add(titleRow);
+            stack.Children.Add(new TextBlock
+            {
+                Text = hint,
+                TextWrapping = TextWrapping.Wrap,
+                Opacity = 0.78,
+                Margin = new Thickness(0, 0, 0, 8),
+                FontSize = 12,
+            });
+            stack.Children.Add(content);
+
+            return new Border
+            {
+                Background = System.Windows.Media.Brushes.White,
+                BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xCF, 0xD8, 0xDC)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12),
+                Margin = new Thickness(0, 0, 0, 12),
+                Child = stack,
+            };
         }
 
         private static TextBlock MakeSectionTitle(string text) =>
@@ -332,6 +576,7 @@ namespace EasyEDA_Loader
         {
             settings = McpServerManager.LoadSettings();
             var running = McpServerManager.IsRunning();
+            RefreshWorkflowStatus();
 
             serverStatusText.Text = running ? "Running" : "Stopped";
             serverStatusText.Foreground = running
@@ -383,6 +628,22 @@ namespace EasyEDA_Loader
                 "Cursor can query connectivity without manual export clicks.";
         }
 
+        private void RefreshWorkflowStatus()
+        {
+            try
+            {
+                if (workflowStatusText == null)
+                    return;
+                var steps = DesignWorkflow.Evaluate();
+                workflowStatusText.Text = DesignWorkflow.FormatSummary(steps);
+            }
+            catch (Exception ex)
+            {
+                if (workflowStatusText != null)
+                    workflowStatusText.Text = "Workflow status unavailable: " + ex.Message;
+            }
+        }
+
         private void ExportButton_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -390,7 +651,27 @@ namespace EasyEDA_Loader
                 if (!McpAutoExport.TryExportSilently(settings.ConnectivityFile, out var path))
                     throw new InvalidOperationException(path);
 
-                MessageBox.Show(this, $"Project data exported to:\n{path}", "Altium MCP", MessageBoxButton.OK, MessageBoxImage.Information);
+                var msg = $"Project data exported to:\n{path}";
+                try
+                {
+                    if (File.Exists(PcbFullDrc.DefaultReportPath))
+                    {
+                        var reportJson = File.ReadAllText(PcbFullDrc.DefaultReportPath);
+                        var report = Newtonsoft.Json.JsonConvert.DeserializeObject<System.Collections.Generic.Dictionary<string, object>>(reportJson);
+                        if (report != null)
+                            msg += "\n\n" + PcbFullDrc.FormatUserMessage(report);
+                    }
+                    else if (File.Exists(PcbClearanceDrc.DefaultReportPath))
+                    {
+                        var reportJson = File.ReadAllText(PcbClearanceDrc.DefaultReportPath);
+                        var report = Newtonsoft.Json.JsonConvert.DeserializeObject<System.Collections.Generic.Dictionary<string, object>>(reportJson);
+                        if (report != null)
+                            msg += "\n\n" + PcbClearanceDrc.FormatUserMessage(report);
+                    }
+                }
+                catch { }
+
+                MessageBox.Show(this, msg, "Altium MCP", MessageBoxButton.OK, MessageBoxImage.Information);
                 RefreshUi();
             }
             catch (Exception ex)
@@ -451,6 +732,31 @@ namespace EasyEDA_Loader
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
+
+        private void FloorplanPreviewButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var window = new FloorplanPreviewWindow { Owner = this };
+                window.Show();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Floorplan Preview", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void SmartPlaceButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!TryReadPlacementInputs(out var spacingMils, out var maxRadiusMils, out var maxSchDistance, out _))
+                return;
+
+            RunClusterAction(
+                smartPlaceButton,
+                "Smart Place: needs → best floorplan → auto-place → fanout → rooms…",
+                () => SmartPlacePipeline.Run(spacingMils, maxRadiusMils, maxSchDistance, optimizeAfter: false),
+                "Altium MCP — Smart Place");
+        }
 
         private void ClusterAllIcPartsButton_Click(object sender, RoutedEventArgs e)
         {
@@ -601,6 +907,50 @@ namespace EasyEDA_Loader
             }
         }
 
+        private void CreateRoomsButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                createRoomsButton.IsEnabled = false;
+                placementStatusText.Text = "Creating placement rooms from last plan...";
+                PcbDocumentHelper.PumpUi();
+                var message = PlacementRooms.CreateRoomsFromLastPlan(alsoAnchorUnions: true);
+                placementStatusText.Text = message.Replace("\r\n", " ").Replace("\n", " ");
+                MessageBox.Show(this, message, "Altium MCP - Rooms", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                placementStatusText.Text = ex.Message;
+                MessageBox.Show(this, ex.Message, "Altium MCP - Rooms", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                createRoomsButton.IsEnabled = true;
+            }
+        }
+
+        private void FanoutDecapButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                fanoutDecapButton.IsEnabled = false;
+                placementStatusText.Text = "Placing decap/power fanout vias...";
+                PcbDocumentHelper.PumpUi();
+                var message = DecapFanout.FanoutDecouplingAndPowerPads();
+                placementStatusText.Text = message.Replace("\r\n", " ").Replace("\n", " ");
+                MessageBox.Show(this, message, "Altium MCP - Fanout", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                placementStatusText.Text = ex.Message;
+                MessageBox.Show(this, ex.Message, "Altium MCP - Fanout", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                fanoutDecapButton.IsEnabled = true;
+            }
+        }
+
         private void ResizeDesignatorsButton_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -675,6 +1025,55 @@ namespace EasyEDA_Loader
             catch (Exception ex)
             {
                 MessageBox.Show(this, ex.Message, "Altium MCP - PCB Rules", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void RunClearanceDrcButton_Click(object sender, RoutedEventArgs e)
+        {
+            runClearanceDrcButton.IsEnabled = false;
+            postRouteStatusText.Text = "Running full PCB DRC (Altium + MCP extras)...";
+            PcbDocumentHelper.PumpUi();
+            try
+            {
+                var report = PcbFullDrc.RunAndShowResults(this);
+                var summary = report.TryGetValue("summary", out var s) ? s?.ToString() : "DRC complete.";
+                postRouteStatusText.Text = summary;
+            }
+            catch (Exception ex)
+            {
+                postRouteStatusText.Text = ex.Message;
+                MessageBox.Show(this, ex.Message, "Altium MCP Full PCB DRC", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                runClearanceDrcButton.IsEnabled = true;
+            }
+        }
+
+        private void ViaStitchButton_Click(object sender, RoutedEventArgs e)
+        {
+            viaStitchButton.IsEnabled = false;
+            postRouteStatusText.Text = "Placing GND stitch vias along RF / clock routes...";
+            PcbDocumentHelper.PumpUi();
+            try
+            {
+                var message = ViaStitcher.StitchRfAndClocks();
+                postRouteStatusText.Text = message.Replace("\r\n", " ").Replace("\n", " ");
+                MessageBox.Show(
+                    this,
+                    message,
+                    "Altium MCP Via Stitch",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                postRouteStatusText.Text = ex.Message;
+                MessageBox.Show(this, ex.Message, "Altium MCP Via Stitch", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                viaStitchButton.IsEnabled = true;
             }
         }
     }

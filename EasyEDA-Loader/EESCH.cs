@@ -33,9 +33,37 @@ namespace EasyEDA_Loader
             schComponent.SetState_LibReference(name);
             var schDesignator = schComponent.GetState_SchDesignator();
             if (schDesignator != null)
+            {
                 schDesignator.SetState_Text(designator ?? string.Empty);
+                try
+                {
+                    // ~10pt so designator doesn't dwarf a normal passive body.
+                    int fontId = AltiumApi.GlobalVars.SCHServer.GetState_FontManager()
+                        .GetFontID(10, 0, false, false, false, false, "Times New Roman");
+                    schDesignator.SetState_FontId(fontId);
+                }
+                catch { }
+            }
             schComponent.SetState_ComponentDescription(desc);
             return schComponent;
+        }
+
+        /// <summary>
+        /// Remove an existing SchLib component so a re-import can replace a broken symbol.
+        /// </summary>
+        public static bool TryRemoveComponent(ISch_Lib schLib, ISch_Component component)
+        {
+            if (schLib == null || component == null)
+                return false;
+            try
+            {
+                schLib.RemoveSchComponent(component);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
 
@@ -169,12 +197,29 @@ namespace EasyEDA_Loader
 
         public static void CreateLine(ISch_Lib schLib, ISch_Component c, double x1, double y1, double x2, double y2)
         {
+            CreateLine(schLib, c, x1, y1, x2, y2, thick: false);
+        }
+
+        public static void CreateLine(ISch_Lib schLib, ISch_Component c, double x1, double y1, double x2, double y2, bool thick)
+        {
             var line = AltiumApi.GlobalVars.SCHServer.SchObjectFactory(SCH.TObjectId.eLine, SCH.TObjectCreationMode.eCreate_Default) as ISch_Line;
             if (line == null)
                 return;
 
-            try { line.SetState_LineWidth(TSize.eMedium); }
-            catch { line.SetState_LineWidth(TSize.eSmall); }
+            // Prefer thicker strokes for passive bodies so symbols stay readable at normal zoom.
+            try
+            {
+                if (thick)
+                    line.SetState_LineWidth(TSize.eLarge);
+                else
+                    line.SetState_LineWidth(TSize.eMedium);
+            }
+            catch
+            {
+                try { line.SetState_LineWidth(TSize.eMedium); }
+                catch { line.SetState_LineWidth(TSize.eSmall); }
+            }
+
             line.SetState_Location(new DXP.Point
             {
                 X = AltiumApi.MilsToCoord(x1),

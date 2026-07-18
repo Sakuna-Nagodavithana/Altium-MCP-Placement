@@ -10,7 +10,7 @@ namespace EasyEDA_Loader
     internal sealed class PcbRulesProfile
     {
         public const string DefaultProfileFileName = "pcb-rules-profile.json";
-        private const int CurrentProfileVersion = 5;
+        private const int CurrentProfileVersion = 6;
 
         public static string ProfilePath =>
             Path.Combine(
@@ -22,6 +22,7 @@ namespace EasyEDA_Loader
         public List<NetClassDefinition> NetClasses { get; set; } = new List<NetClassDefinition>();
         public List<WidthRuleDefinition> WidthRules { get; set; } = new List<WidthRuleDefinition>();
         public List<ClearanceRuleDefinition> ClearanceRules { get; set; } = new List<ClearanceRuleDefinition>();
+        public List<ViaStyleRuleDefinition> ViaStyleRules { get; set; } = new List<ViaStyleRuleDefinition>();
         public PlaneRoutingPolicy PlaneRouting { get; set; } = new PlaneRoutingPolicy();
 
         public static PcbRulesProfile LoadOrCreateDefault()
@@ -135,6 +136,19 @@ namespace EasyEDA_Loader
                 }
             }
 
+            profile.ViaStyleRules ??= new List<ViaStyleRuleDefinition>();
+            foreach (var defRule in defaults.ViaStyleRules)
+            {
+                var exists = profile.ViaStyleRules.Any(r =>
+                    string.Equals(r.Name, defRule.Name, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(r.NetClass, defRule.NetClass, StringComparison.OrdinalIgnoreCase));
+                if (!exists)
+                {
+                    profile.ViaStyleRules.Add(defRule);
+                    changed = true;
+                }
+            }
+
             if (profile.ProfileVersion < CurrentProfileVersion)
             {
                 // v3 migration: remove ambiguous RF pin/net tokens (PA/TX/RX) that substring-matched
@@ -188,6 +202,12 @@ namespace EasyEDA_Loader
                             }
                         }
                     }
+                }
+                // v6: routing via styles + neckdown-friendly PWR width range (min << preferred).
+                if (profile.ProfileVersion < 6)
+                {
+                    profile.ViaStyleRules ??= new List<ViaStyleRuleDefinition>();
+                    changed = true;
                 }
                 profile.ProfileVersion = CurrentProfileVersion;
                 changed = true;
@@ -297,9 +317,10 @@ namespace EasyEDA_Loader
                     {
                         Name = "MCP - PWR Width",
                         NetClass = "PWR",
-                        MinMils = 12.0,
-                        PreferredMils = 15.0,
-                        MaxMils = 50.0,
+                        // Min allows neckdown into IC pads; preferred is plane/feeder width.
+                        MinMils = 8.0,
+                        PreferredMils = 20.0,
+                        MaxMils = 60.0,
                     },
                 },
                 ClearanceRules = new List<ClearanceRuleDefinition>
@@ -326,11 +347,59 @@ namespace EasyEDA_Loader
                         GapMils = 6.0,
                     },
                 },
+                ViaStyleRules = new List<ViaStyleRuleDefinition>
+                {
+                    // Through vias for multilayer plane stitching / fanout (sizes in mils).
+                    new ViaStyleRuleDefinition
+                    {
+                        Name = "MCP - Logic Via",
+                        NetClass = "Logic",
+                        PreferHoleMils = 8.0,
+                        MinHoleMils = 6.0,
+                        MaxHoleMils = 12.0,
+                        PreferDiameterMils = 18.0,
+                        MinDiameterMils = 16.0,
+                        MaxDiameterMils = 28.0,
+                    },
+                    new ViaStyleRuleDefinition
+                    {
+                        Name = "MCP - HighSpeed Via",
+                        NetClass = "HighSpeed",
+                        PreferHoleMils = 8.0,
+                        MinHoleMils = 6.0,
+                        MaxHoleMils = 10.0,
+                        PreferDiameterMils = 18.0,
+                        MinDiameterMils = 16.0,
+                        MaxDiameterMils = 24.0,
+                    },
+                    new ViaStyleRuleDefinition
+                    {
+                        Name = "MCP - RF Via",
+                        NetClass = "RF",
+                        PreferHoleMils = 8.0,
+                        MinHoleMils = 6.0,
+                        MaxHoleMils = 10.0,
+                        PreferDiameterMils = 18.0,
+                        MinDiameterMils = 16.0,
+                        MaxDiameterMils = 24.0,
+                    },
+                    new ViaStyleRuleDefinition
+                    {
+                        Name = "MCP - PWR Via",
+                        NetClass = "PWR",
+                        PreferHoleMils = 12.0,
+                        MinHoleMils = 10.0,
+                        MaxHoleMils = 20.0,
+                        PreferDiameterMils = 24.0,
+                        MinDiameterMils = 20.0,
+                        MaxDiameterMils = 40.0,
+                    },
+                },
                 PlaneRouting = new PlaneRoutingPolicy
                 {
                     Enabled = true,
                     RuleName = "MCP - Signal Routing Layers Only",
-                    ScopeExpression = "InNetClass('Logic') Or InNetClass('RF')",
+                    ScopeExpression = "InNetClass('Logic') Or InNetClass('RF') Or InNetClass('HighSpeed')",
                     AllowedSignalLayerNameTokens = new List<string> { "Top", "Bottom" },
                     BlockInternalPlaneLayers = true,
                     PlaneClearanceRuleName = "MCP - Solid Plane Clearance",
@@ -368,11 +437,23 @@ namespace EasyEDA_Loader
         public double GapMils { get; set; }
     }
 
+    internal sealed class ViaStyleRuleDefinition
+    {
+        public string Name { get; set; } = string.Empty;
+        public string NetClass { get; set; } = string.Empty;
+        public double PreferHoleMils { get; set; }
+        public double MinHoleMils { get; set; }
+        public double MaxHoleMils { get; set; }
+        public double PreferDiameterMils { get; set; }
+        public double MinDiameterMils { get; set; }
+        public double MaxDiameterMils { get; set; }
+    }
+
     internal sealed class PlaneRoutingPolicy
     {
         public bool Enabled { get; set; } = true;
         public string RuleName { get; set; } = "MCP - Signal Routing Layers Only";
-        public string ScopeExpression { get; set; } = "InNetClass('Logic') Or InNetClass('RF')";
+        public string ScopeExpression { get; set; } = "InNetClass('Logic') Or InNetClass('RF') Or InNetClass('HighSpeed')";
         public List<string> AllowedSignalLayerNameTokens { get; set; } = new List<string> { "Top", "Bottom" };
         public bool BlockInternalPlaneLayers { get; set; } = true;
         public string PlaneClearanceRuleName { get; set; } = "MCP - Solid Plane Clearance";

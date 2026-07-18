@@ -34,6 +34,15 @@ namespace EasyEDA_Loader
             RegisterCommand("EasyEDAClusterIcParts", new CommandProc(ClusterIcParts));
             RegisterCommand("EasyEDAClusterAllIcParts", new CommandProc(ClusterAllIcParts));
             RegisterCommand("EasyEDASetupPcbRules", new CommandProc(SetupPcbRules));
+            RegisterCommand("EasyEDARunClearanceDrc", new CommandProc(RunClearanceDrc));
+            RegisterCommand("EasyEDAViaStitch", new CommandProc(ViaStitchRfClocks));
+            RegisterCommand("EasyEDADesignWorkflow", new CommandProc(OpenDesignWorkflow));
+            RegisterCommand("EasyEDAStackupAdvisor", new CommandProc(OpenStackupAdvisor));
+            RegisterCommand("EasyEDARoutePriority", new CommandProc(OpenRoutePriority));
+            RegisterCommand("EasyEDACreateRooms", new CommandProc(CreatePlacementRooms));
+            RegisterCommand("EasyEDAFanoutDecap", new CommandProc(FanoutDecapVias));
+            RegisterCommand("EasyEDAFloorplanPreview", new CommandProc(OpenFloorplanPreview));
+            RegisterCommand("EasyEDABoardNeeds", new CommandProc(OpenBoardNeeds));
         }
 
         private void RegisterCommand(string argCommandId, CommandProc commandProc) => ((DXP.CommandLauncher)CommandLauncher).RegisterCommand(argCommandId, (CommandProc)((IServerDocumentView view, ref string parameters) =>
@@ -91,9 +100,135 @@ namespace EasyEDA_Loader
                 string outputPath = DesignExporter.ExportFullProject();
                 if (!noGUIMode)
                 {
+                    var message = $"Project data exported for MCP:\n{outputPath}";
+                    try
+                    {
+                        if (System.IO.File.Exists(PcbFullDrc.DefaultReportPath))
+                        {
+                            var reportJson = System.IO.File.ReadAllText(PcbFullDrc.DefaultReportPath);
+                            var report = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, object>>(reportJson);
+                            if (report != null)
+                                message += "\n\n" + PcbFullDrc.FormatUserMessage(report);
+                        }
+                        else if (System.IO.File.Exists(PcbClearanceDrc.DefaultReportPath))
+                        {
+                            var reportJson = System.IO.File.ReadAllText(PcbClearanceDrc.DefaultReportPath);
+                            var report = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, object>>(reportJson);
+                            if (report != null)
+                                message += "\n\n" + PcbClearanceDrc.FormatUserMessage(report);
+                        }
+                    }
+                    catch { }
+
                     MessageBox.Show(
-                        $"Project data exported for MCP:\n{outputPath}",
+                        message,
                         "Altium MCP Placement",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (noGUIMode)
+                    throw;
+
+                MessageBox.Show(ex.Message, "Altium MCP Placement Error", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+            }
+        }
+
+        private void RunClearanceDrc(
+          IServerDocumentView argContext,
+          ref string argParameters)
+        {
+            try
+            {
+                if (noGUIMode)
+                {
+                    PcbFullDrc.RunFullCheck(runAltiumBatch: true);
+                    return;
+                }
+
+                PcbFullDrc.RunAndShowResults();
+            }
+            catch (Exception ex)
+            {
+                if (noGUIMode)
+                    throw;
+
+                MessageBox.Show(ex.Message, "Altium MCP Placement Error", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+            }
+        }
+
+        private void OpenDesignWorkflow(
+          IServerDocumentView argContext,
+          ref string argParameters)
+        {
+            var window = new DesignWorkflowWindow();
+            window.Show();
+        }
+
+        private void OpenStackupAdvisor(
+          IServerDocumentView argContext,
+          ref string argParameters)
+        {
+            var window = new StackupAdvisorWindow();
+            window.Show();
+        }
+
+        private void OpenRoutePriority(
+          IServerDocumentView argContext,
+          ref string argParameters)
+        {
+            var window = new RoutingPriorityWindow();
+            window.Show();
+        }
+
+        private void CreatePlacementRooms(
+          IServerDocumentView argContext,
+          ref string argParameters)
+        {
+            var message = PlacementRooms.CreateRoomsFromLastPlan(alsoAnchorUnions: true);
+            if (!noGUIMode)
+                MessageBox.Show(message, "Altium MCP Rooms", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void FanoutDecapVias(
+          IServerDocumentView argContext,
+          ref string argParameters)
+        {
+            var message = DecapFanout.FanoutDecouplingAndPowerPads();
+            if (!noGUIMode)
+                MessageBox.Show(message, "Altium MCP Fanout", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void OpenFloorplanPreview(
+          IServerDocumentView argContext,
+          ref string argParameters)
+        {
+            var window = new FloorplanPreviewWindow();
+            window.Show();
+        }
+
+        private void OpenBoardNeeds(
+          IServerDocumentView argContext,
+          ref string argParameters)
+        {
+            var window = new BoardNeedsWindow();
+            window.Show();
+        }
+
+        private void ViaStitchRfClocks(
+          IServerDocumentView argContext,
+          ref string argParameters)
+        {
+            try
+            {
+                var message = ViaStitcher.StitchRfAndClocks();
+                if (!noGUIMode)
+                {
+                    MessageBox.Show(
+                        message,
+                        "Altium MCP Via Stitch",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
                 }
@@ -420,95 +555,111 @@ namespace EasyEDA_Loader
                     string partName = ee_symbol.Head.Parameters.Name;
                     string description = productInfo?.Description ?? partName;
 
+                    // Always rebuild the schematic symbol. Skipping when the part already
+                    // exists left broken EasyEDA thin-line caps/resistors stuck in EasyEDA.schlib.
                     var existingComponent = schLib.GetState_SchComponentByLibRef(partName);
-                    if (existingComponent == null)
+                    if (existingComponent != null)
                     {
-                        var component = EESCH.CreateComponent(partName, description, ee_symbol.Head.Parameters.Pre);
-                        if (schLib != null && component != null)
+                        if (!EESCH.TryRemoveComponent(schLib, existingComponent))
                         {
-                            AltiumApi.GlobalVars.PCBServer.PreProcess();
-                            try
-                            {
-                                SymbolDrawing.CreateComponent(
-                                    schLib,
-                                    component,
-                                    pcbLibraryPath,
-                                    package,
-                                    ee_symbol);
-
-                                // Stamp the EasyEDA API parameters onto the component,
-                                // renaming its LCSC-number field to JLCPCB Part.
-                                bool stampedJlcpcbPart = false;
-                                if (productInfo?.Parameters != null)
-                                {
-                                    foreach (var kvp in productInfo.Parameters)
-                                    {
-                                        if (IsLcscPartKey(kvp.Key))
-                                        {
-                                            EESCH.AddParameter(
-                                                component,
-                                                "JLCPCB Part",
-                                                kvp.Value,
-                                                visible: true,
-                                                showName: false);
-                                            stampedJlcpcbPart = true;
-                                            continue;
-                                        }
-                                        EESCH.AddParameter(component, kvp.Key, kvp.Value);
-                                    }
-                                }
-
-                                if (!stampedJlcpcbPart)
-                                {
-                                    string singlePartLcsc =
-                                        selection.PartInfo?.Part ??
-                                        selection.PartInfo?.Name ??
-                                        "";
-                                    if (!string.IsNullOrWhiteSpace(singlePartLcsc))
-                                    {
-                                        var match =
-                                            System.Text.RegularExpressions.Regex.Match(
-                                                singlePartLcsc,
-                                                @"C\d{3,9}",
-                                                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                                        if (match.Success)
-                                            singlePartLcsc = match.Value;
-                                        EESCH.AddParameter(
-                                            component,
-                                            "JLCPCB Part",
-                                            singlePartLcsc,
-                                            visible: true,
-                                            showName: false);
-                                    }
-                                }
-
-                                if (bomAnnotations.TryGetValue(
-                                        selection.PartInfo?.Part ?? "",
-                                        out var annotations))
-                                {
-                                    foreach (var annotation in annotations)
-                                    {
-                                        bool isVisible = string.Equals(
-                                            annotation.Name,
-                                            "JLCPCB Part",
-                                            StringComparison.OrdinalIgnoreCase);
-                                        EESCH.AddParameter(
-                                            component,
-                                            annotation.Name,
-                                            annotation.Value,
-                                            visible: isVisible,
-                                            showName: false);
-                                    }
-                                }
-                            }
-                            finally
-                            {
-                                AltiumApi.GlobalVars.PCBServer.PostProcess();
-                            }
-                            schLib.SetState_Current_SchComponent(component);
-                            schLib.GraphicallyInvalidate();
+                            MessageBox.Show(
+                                $"Could not replace existing library symbol '{partName}'.\n" +
+                                "Delete it manually from EasyEDA.schlib, then re-import.",
+                                "Altium MCP Placement",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                        }
+                        else
+                        {
                             schDocument.DoFileSave("SchLib");
                         }
+                    }
+
+                    var component = EESCH.CreateComponent(partName, description, ee_symbol.Head.Parameters.Pre);
+                    if (schLib != null && component != null)
+                    {
+                        AltiumApi.GlobalVars.PCBServer.PreProcess();
+                        try
+                        {
+                            SymbolDrawing.CreateComponent(
+                                schLib,
+                                component,
+                                pcbLibraryPath,
+                                package,
+                                ee_symbol);
+
+                            // Stamp the EasyEDA API parameters onto the component,
+                            // renaming its LCSC-number field to JLCPCB Part.
+                            bool stampedJlcpcbPart = false;
+                            if (productInfo?.Parameters != null)
+                            {
+                                foreach (var kvp in productInfo.Parameters)
+                                {
+                                    if (IsLcscPartKey(kvp.Key))
+                                    {
+                                        EESCH.AddParameter(
+                                            component,
+                                            "JLCPCB Part",
+                                            kvp.Value,
+                                            visible: true,
+                                            showName: false);
+                                        stampedJlcpcbPart = true;
+                                        continue;
+                                    }
+                                    EESCH.AddParameter(component, kvp.Key, kvp.Value);
+                                }
+                            }
+
+                            if (!stampedJlcpcbPart)
+                            {
+                                string singlePartLcsc =
+                                    selection.PartInfo?.Part ??
+                                    selection.PartInfo?.Name ??
+                                    "";
+                                if (!string.IsNullOrWhiteSpace(singlePartLcsc))
+                                {
+                                    var match =
+                                        System.Text.RegularExpressions.Regex.Match(
+                                            singlePartLcsc,
+                                            @"C\d{3,9}",
+                                            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                                    if (match.Success)
+                                        singlePartLcsc = match.Value;
+                                    EESCH.AddParameter(
+                                        component,
+                                        "JLCPCB Part",
+                                        singlePartLcsc,
+                                        visible: true,
+                                        showName: false);
+                                }
+                            }
+
+                            if (bomAnnotations.TryGetValue(
+                                    selection.PartInfo?.Part ?? "",
+                                    out var annotations))
+                            {
+                                foreach (var annotation in annotations)
+                                {
+                                    bool isVisible = string.Equals(
+                                        annotation.Name,
+                                        "JLCPCB Part",
+                                        StringComparison.OrdinalIgnoreCase);
+                                    EESCH.AddParameter(
+                                        component,
+                                        annotation.Name,
+                                        annotation.Value,
+                                        visible: isVisible,
+                                        showName: false);
+                                }
+                            }
+                        }
+                        finally
+                        {
+                            AltiumApi.GlobalVars.PCBServer.PostProcess();
+                        }
+                        schLib.SetState_Current_SchComponent(component);
+                        schLib.GraphicallyInvalidate();
+                        schDocument.DoFileSave("SchLib");
                     }
 
                     // Place component in schematic if requested (only the last one)

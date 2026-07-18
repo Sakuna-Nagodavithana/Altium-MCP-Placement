@@ -356,8 +356,10 @@ namespace EasyEDA_Loader
             // readable (LayoutPins often packs pins too close for a tiny EasyEDA body).
             if (pins.Count == 2 && IsPassivePrefix(prefix))
             {
-                const double bodySpan = 300.0;
-                const double midY = 150.0;
+                // Pin hotspots ~200 mil apart (standard Altium passive spacing).
+                // Leads + body should dominate over designator/comment text.
+                const double bodySpan = 200.0;
+                const double midY = 100.0;
                 const double pinLen = 100.0;
                 var left = pins[0];
                 var right = pins[1];
@@ -373,7 +375,6 @@ namespace EasyEDA_Loader
                 right.ShowName = false;
                 drewStandard = DrawStandardPassive(schLib, component, left, right, prefix, midY * 2);
                 pins = new List<AltiumSymbolPin> { left, right };
-                // Use midY*2 as symHeight for pin placement below.
                 foreach (var pin in pins)
                 {
                     EESCH.CreatePin(
@@ -467,55 +468,57 @@ namespace EasyEDA_Loader
         static void DrawCapacitorPlates(ISch_Lib schLib, ISch_Component component,
             double x1, double y1, double x2, double y2, double mx, double my, bool horizontal, bool polarized)
         {
-            // Classic Altium-style capacitor: two parallel plates, clearly sized.
-            const double gap = 20;         // spacing between plates
-            const double plateHalf = 55;   // half-length of each plate
-            const double plateThick = 4;   // visual thickness via filled bars
+            // Classic schematic capacitor: two parallel plates drawn as thick lines.
+            // Previous 4-mil filled rectangles looked like a speck next to the leads.
+            const double gap = 28;          // spacing between plates
+            const double plateHalf = 70;    // half-length of each plate (140 mil total)
+            const double plateSpread = 4;   // draw 3 parallel strokes for visual weight
 
             if (horizontal)
             {
-                // Left plate (filled dark bar)
-                EESCH.CreateRectangle(
-                    schLib, component,
-                    mx - gap / 2 - plateThick, my - plateHalf,
-                    mx - gap / 2, my + plateHalf,
-                    EESCH.RGB(0, 0, 0), EESCH.RGB(0, 0, 0), solid: true);
+                // Left plate (vertical strokes)
+                for (int i = -1; i <= 1; i++)
+                {
+                    double px = mx - gap / 2 + i * plateSpread;
+                    EESCH.CreateLine(schLib, component, px, my - plateHalf, px, my + plateHalf, thick: true);
+                }
                 // Right plate
-                EESCH.CreateRectangle(
-                    schLib, component,
-                    mx + gap / 2, my - plateHalf,
-                    mx + gap / 2 + plateThick, my + plateHalf,
-                    EESCH.RGB(0, 0, 0), EESCH.RGB(0, 0, 0), solid: true);
-                EESCH.CreateLine(schLib, component, x1, y1, mx - gap / 2 - plateThick, my);
-                EESCH.CreateLine(schLib, component, x2, y2, mx + gap / 2 + plateThick, my);
+                for (int i = -1; i <= 1; i++)
+                {
+                    double px = mx + gap / 2 + i * plateSpread;
+                    EESCH.CreateLine(schLib, component, px, my - plateHalf, px, my + plateHalf, thick: true);
+                }
+                // Leads stop at the outer face of each plate stack
+                EESCH.CreateLine(schLib, component, x1, y1, mx - gap / 2 - plateSpread, my, thick: false);
+                EESCH.CreateLine(schLib, component, x2, y2, mx + gap / 2 + plateSpread, my, thick: false);
                 if (polarized)
                 {
-                    EESCH.CreateLine(schLib, component, mx - gap / 2 - 14, my + plateHalf + 10, mx - gap / 2 + 6, my + plateHalf + 10);
-                    EESCH.CreateLine(schLib, component, mx - gap / 2 - 4, my + plateHalf + 4, mx - gap / 2 - 4, my + plateHalf + 16);
+                    EESCH.CreateLine(schLib, component, mx - gap / 2 - 18, my + plateHalf + 12, mx - gap / 2 + 8, my + plateHalf + 12, thick: true);
+                    EESCH.CreateLine(schLib, component, mx - gap / 2 - 5, my + plateHalf + 4, mx - gap / 2 - 5, my + plateHalf + 20, thick: true);
                 }
             }
             else
             {
-                EESCH.CreateRectangle(
-                    schLib, component,
-                    mx - plateHalf, my - gap / 2 - plateThick,
-                    mx + plateHalf, my - gap / 2,
-                    EESCH.RGB(0, 0, 0), EESCH.RGB(0, 0, 0), solid: true);
-                EESCH.CreateRectangle(
-                    schLib, component,
-                    mx - plateHalf, my + gap / 2,
-                    mx + plateHalf, my + gap / 2 + plateThick,
-                    EESCH.RGB(0, 0, 0), EESCH.RGB(0, 0, 0), solid: true);
-                EESCH.CreateLine(schLib, component, x1, y1, mx, my - gap / 2 - plateThick);
-                EESCH.CreateLine(schLib, component, x2, y2, mx, my + gap / 2 + plateThick);
+                for (int i = -1; i <= 1; i++)
+                {
+                    double py = my - gap / 2 + i * plateSpread;
+                    EESCH.CreateLine(schLib, component, mx - plateHalf, py, mx + plateHalf, py, thick: true);
+                }
+                for (int i = -1; i <= 1; i++)
+                {
+                    double py = my + gap / 2 + i * plateSpread;
+                    EESCH.CreateLine(schLib, component, mx - plateHalf, py, mx + plateHalf, py, thick: true);
+                }
+                EESCH.CreateLine(schLib, component, x1, y1, mx, my - gap / 2 - plateSpread, thick: false);
+                EESCH.CreateLine(schLib, component, x2, y2, mx, my + gap / 2 + plateSpread, thick: false);
             }
         }
 
         static void DrawResistorBox(ISch_Lib schLib, ISch_Component component,
             double x1, double y1, double x2, double y2, double mx, double my, bool horizontal)
         {
-            // Large IEEE-style resistor rectangle — easy to see at schematic zoom.
-            const double boxW = 120, boxH = 40;
+            // IEEE rectangle sized to match a normal Altium passive (~standard R).
+            const double boxW = 100, boxH = 36;
 
             if (horizontal)
             {

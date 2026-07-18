@@ -1,0 +1,58 @@
+ClientInsFile 1.0
+
+
+
+Server
+
+    EditorName        = 'Altium-MCP-Placement'
+
+    EditorExePath     = 'Altium-MCP-Placement.DLL'
+
+    EditorDescription = 'Altium MCP export, pin-accurate passive placement, and IC clustering.'
+
+    Version           = 'Version 1.2.0.0'
+
+    Date              = '19-June-2026'
+
+    HelpAboutInfo     = 'This software is protected by copyright law and international treaties.'
+
+    Copyright         = 'Copyright Expired 2025'
+
+    Updates           = 'AdvSch'
+
+    SystemExtension   = False
+
+End
+
+
+
+Command Name = 'EasyEDARun'      LongSummary = 'Loads EasyEDA component from server' End
+
+Command Name = 'EasyEDAExportConnectivity'      LongSummary = 'Exports full project design data JSON for MCP' End
+
+Command Name = 'EasyEDAMcpPanel'      LongSummary = 'Opens Altium MCP control panel' End
+
+Command Name = 'EasyEDAApplyPlacementPlan'      LongSummary = 'Applies placement_plan.json to the active PCB' End
+
+Command Name = 'EasyEDAClusterIcParts'      LongSummary = 'Place support passives around one IC/U module on the PCB' End
+
+Command Name = 'EasyEDAClusterAllIcParts'      LongSummary = 'Place support passives around all IC/U modules on the PCB' End
+
+Command Name = 'EasyEDARunClearanceDrc'      LongSummary = 'Full PCB DRC: Altium rules + MCP extras; opens error list with Jump' End
+
+Command Name = 'EasyEDAViaStitch'      LongSummary = 'Place GND stitch vias along RF and HighSpeed clock routes' End
+
+Command Name = 'EasyEDADesignWorkflow'      LongSummary = 'Expert schematic-to-fab process guide (checklist + playbook + route order)' End
+
+Command Name = 'EasyEDAStackupAdvisor'      LongSummary = 'JLCPCB stackup picker and current PCB layer check' End
+
+Command Name = 'EasyEDARoutePriority'      LongSummary = 'Shows nets to route in expert order RF → HighSpeed → PWR → Logic' End
+
+Command Name = 'EasyEDACreateRooms'      LongSummary = 'Create Altium Rooms (confinement) around each IC cluster from placement_plan' End
+
+Command Name = 'EasyEDAFanoutDecap'      LongSummary = 'Place plane vias next to decoupling and IC power/GND pads' End
+
+Command Name = 'EasyEDAFloorplanPreview'      LongSummary = 'Preview board floorplan layouts; pick auto/mm/DXF size then apply' End
+
+Command Name = 'EasyEDABoardNeeds'      LongSummary = 'Recommend stackup/layers, impedance, via sizes, and thermal actions from parts' End
+

@@ -16,8 +16,7 @@ namespace EasyEDA_Loader.Placement
         public int PinSlot { get; set; }
         public double AngleOffsetDeg { get; set; }
         public double? RotationDeg { get; set; }
-        /// <summary>"top" or "bottom" -- decoupling caps go on the bottom side directly
-        /// under the IC power pin for the shortest current loop.</summary>
+        /// <summary>"top" or "bottom". Decoupling stays on top for multilayer plane boards.</summary>
         public string Layer { get; set; } = "top";
         public bool Mirror { get; set; }
     }
@@ -82,10 +81,9 @@ namespace EasyEDA_Loader.Placement
             var angleDeg = targetPinAngle;
             var angleOffsetDeg = 0.0;
             var bodyRadius = PassiveBodyRadiusMils(item, pcbComponent);
-            // Spacing between chain members = body + routing gap. This makes a tight,
-            // natural chain where each part sits close to the previous one (signal order)
-            // rather than all at a fixed step from the IC center.
-            var step = Math.Max(spacingMils * 0.9, bodyRadius * 2.0 + Math.Max(spacingMils * 0.4, 30.0));
+            // Spacing between chain members = body + routing gap. Tight natural chain
+            // along the pin ray; subsequent parts sit close to the previous member.
+            var step = Math.Max(spacingMils * 0.75, bodyRadius * 2.0 + Math.Max(spacingMils * 0.28, 18.0));
 
             // Origin for this member: the IC pin for the first member, the previous
             // member's position for subsequent ones. Falls back to the IC center.
@@ -477,7 +475,7 @@ namespace EasyEDA_Loader.Placement
             double spacingMils,
             double maxRadiusMils)
         {
-            var gap = Math.Max(spacingMils * 0.25, 20.0);
+            var gap = Math.Max(spacingMils * 0.55, 28.0);
 
             bool Blocked(double testX, double testY)
             {
@@ -677,9 +675,11 @@ namespace EasyEDA_Loader.Placement
             var angle = Math.Atan2(dy, dx) * 180.0 / Math.PI;
             var snapped = Math.Round(angle / 90.0) * 90.0 % 360.0;
             var nets = new HashSet<string>(
-                (item["nets"] as JArray ?? new JArray()).Select(n => PlacementConstants.JsonStr(n).Trim().ToUpperInvariant()),
+                (item["nets"] as JArray ?? new JArray()).Select(n => PlacementConstants.JsonStr(n).Trim()),
                 StringComparer.OrdinalIgnoreCase);
-            if (nets.Contains("GND") && nets.Count >= 2)
+            // Orient so the non-plane pad faces the IC pin (short surface track); the
+            // plane pad (GND/VCC) faces away for a short via to the mid-layer.
+            if (nets.Count >= 2 && nets.Any(PlacementConstants.IsPlaneNet))
                 snapped = (snapped + 180.0) % 360.0;
 
             var current = pcbComponent?["placement"] as JObject;
@@ -701,9 +701,10 @@ namespace EasyEDA_Loader.Placement
                 return false;
             if (PlacementConstants.JsonStr(item["primary_role"]) == "decoupling")
                 return false;
-            var primaryNet = PlacementConstants.JsonStr(item["primary_net"]).Trim().ToUpperInvariant();
-            if (primaryNet == "3V3" || primaryNet == "3.3V" || primaryNet == "GND" || primaryNet == "XTA" ||
-                PlacementConstants.IsGlobalRail(primaryNet))
+            var primaryNet = PlacementConstants.JsonStr(item["primary_net"]).Trim();
+            // Plane nets are via targets, not RF matching-chain members.
+            if (PlacementConstants.IsPlaneNet(primaryNet) ||
+                string.Equals(primaryNet, "XTA", StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
@@ -714,9 +715,9 @@ namespace EasyEDA_Loader.Placement
         internal static bool IsRfShuntToGnd(JObject item)
         {
             var nets = new HashSet<string>(
-                (item["nets"] as JArray ?? new JArray()).Select(n => PlacementConstants.JsonStr(n).Trim().ToUpperInvariant()),
+                (item["nets"] as JArray ?? new JArray()).Select(n => PlacementConstants.JsonStr(n).Trim()),
                 StringComparer.OrdinalIgnoreCase);
-            return nets.Contains("GND") && nets.Count >= 2;
+            return nets.Any(PlacementConstants.IsGndNet) && nets.Count >= 2;
         }
 
         internal static PlacementTargetResult RfPiTTargetXy(
@@ -837,14 +838,14 @@ namespace EasyEDA_Loader.Placement
             // if available; fall back to the courtyard radius (circle) if not.
             double newHalfW = newHalfSize?.Item1 ?? bodyRadiusMils;
             double newHalfH = newHalfSize?.Item2 ?? bodyRadiusMils;
-            var gap = Math.Max(spacingMils * 0.3, 20.0);
+            // Middle-ground assembly/routing gap — previous 0.3× left same-layer overlaps.
+            var gap = Math.Max(spacingMils * 0.55, 28.0);
 
             bool Blocked(double testX, double testY)
             {
                 for (var i = 0; i < placedPoints.Count; i++)
                 {
                     var p = placedPoints[i];
-                    // Skip collision for parts on different board sides.
                     if (newLayer != null && placedLayers != null && i < placedLayers.Count)
                     {
                         var existingLayer = placedLayers[i] ?? "top";
@@ -855,7 +856,6 @@ namespace EasyEDA_Loader.Placement
                         ? placedHalfSizes[i].Item1 : bodyRadiusMils;
                     double existHalfH = (placedHalfSizes != null && i < placedHalfSizes.Count)
                         ? placedHalfSizes[i].Item2 : bodyRadiusMils;
-                    // Rectangle-rectangle overlap check with a routing gap.
                     if (Math.Abs(testX - p.Item1) < (newHalfW + existHalfW + gap) &&
                         Math.Abs(testY - p.Item2) < (newHalfH + existHalfH + gap))
                         return true;
@@ -882,20 +882,39 @@ namespace EasyEDA_Loader.Placement
                 return false;
             }
 
-            for (var attempt = 0; attempt < 24; attempt++)
+            if (Blocked(x, y))
             {
-                if (!Blocked(x, y))
-                    break;
-                var angle = attempt * 27.0 * Math.PI / 180.0;
-                var bump = spacingMils * (0.4 + attempt * 0.1);
-                x += bump * Math.Cos(angle);
-                y += bump * Math.Sin(angle);
-                var dist = Math.Sqrt(Math.Pow(x - anchorXy.Item1, 2) + Math.Pow(y - anchorXy.Item2, 2));
-                if (dist > maxRadiusMils && maxRadiusMils > 0)
+                var dx0 = x - anchorXy.Item1;
+                var dy0 = y - anchorXy.Item2;
+                var baseRadius = Math.Max(Math.Sqrt(dx0 * dx0 + dy0 * dy0), spacingMils);
+                var baseAngle = Math.Atan2(dy0, dx0);
+                var radialStep = Math.Max(gap + Math.Max(newHalfW, newHalfH) * 0.35, spacingMils * 0.6);
+                var searchLimit = Math.Max(
+                    maxRadiusMils > 0 ? maxRadiusMils : baseRadius + radialStep * 20,
+                    baseRadius + radialStep * 20);
+
+                var found = false;
+                for (var ring = 0; ring < 28 && !found; ring++)
                 {
-                    var scale = maxRadiusMils / dist;
-                    x = anchorXy.Item1 + (x - anchorXy.Item1) * scale;
-                    y = anchorXy.Item2 + (y - anchorXy.Item2) * scale;
+                    var radius = baseRadius + ring * radialStep;
+                    if (radius > searchLimit)
+                        break;
+                    for (var angleStep = 0; angleStep < 28; angleStep++)
+                    {
+                        var signedStep = angleStep == 0
+                            ? 0
+                            : ((angleStep % 2 == 1) ? 1 : -1) * ((angleStep + 1) / 2);
+                        var angle = baseAngle + signedStep * (Math.PI / 14.0);
+                        var tx = anchorXy.Item1 + radius * Math.Cos(angle);
+                        var ty = anchorXy.Item2 + radius * Math.Sin(angle);
+                        if (!Blocked(tx, ty))
+                        {
+                            x = tx;
+                            y = ty;
+                            found = true;
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -970,21 +989,18 @@ namespace EasyEDA_Loader.Placement
             var capRank = CapProximityRank(item);
             var isDecoupling = role == "decoupling";
 
-            // Decoupling caps go on the BOTTOM side, directly under the IC power pin,
-            // with a minimal standoff so the cap's near pad sits at the pin pad edge --
-            // this gives the shortest via-to-pin current loop for high-frequency decoupling.
-            // Other support passives stay on the top side at the usual pin-edge standoff.
+            // Multilayer (4–6L) boards with internal GND/PWR planes: keep decoupling on TOP
+            // beside the IC pin (short surface fanout + via to plane). Bottom-side flip was
+            // for 2-layer boards that needed a through-via under the pin.
             var bodyRadius = PassiveBodyRadiusMils(item, pcbComponent);
             double standoff;
             if (isDecoupling)
             {
-                // Minimal standoff: cap body radius + a small gap so the cap clears the
-                // pin pad. Smaller caps (capRank 0) sit closest. Slot adds a little extra
-                // so multiple decoupling caps on the same pin stack outward.
-                standoff = bodyRadius + Math.Max(spacingMils * 0.15, 8.0)
-                           + slot * spacingMils * 0.45
-                           - capRank * spacingMils * 0.15;
-                standoff = Math.Max(standoff, bodyRadius + 4.0);
+                // Close to the pin on the top side; slot stacks multiple caps on same pin.
+                standoff = bodyRadius + Math.Max(spacingMils * 0.35, 18.0)
+                           + slot * spacingMils * 0.55
+                           - capRank * spacingMils * 0.12;
+                standoff = Math.Max(standoff, bodyRadius + 12.0);
             }
             else
             {
@@ -1041,7 +1057,7 @@ namespace EasyEDA_Loader.Placement
             var angleOffsetDeg = slot * 11.0;
             var collisionRadius = CourtyardHalfSizeMils(item, pcbComponent);
             var bboxHalf = GetBboxHalfSize(pcbComponent);
-            var partLayer = isDecoupling ? "bottom" : "top";
+            const string partLayer = "top";
             var resolved = ResolveCollision(
                 x, y, spacingMils, maxRadiusMils, anchorPcbXy, placedPoints, collisionRadius, keepoutBoxes, pcbObstacles,
                 partLayer, placedLayers, bboxHalf ?? Tuple.Create(collisionRadius, collisionRadius), placedHalfSizes);
@@ -1052,25 +1068,18 @@ namespace EasyEDA_Loader.Placement
                 : Math.Sqrt(Math.Pow(x - anchorPcbXy.Item1, 2) + Math.Pow(y - anchorPcbXy.Item2, 2));
             var rotation = SuggestPassiveRotationDeg(item, Tuple.Create(x, y), pinXy, pcbComponent);
 
-            // Bottom-side decoupling caps are flipped via FlipComponent at apply time,
-            // which mirrors the component and swaps the pad positions. Adding 180 deg to the
-            // rotation compensates so the VCC pad still faces the IC pin (short via) and
-            // the GND pad faces away (toward the ground plane).
-            if (isDecoupling && rotation.HasValue)
-                rotation = (rotation.Value + 180.0) % 360.0;
-
             return new PlacementTargetResult
             {
                 X = x,
                 Y = y,
-                Method = isDecoupling ? method + "_bottom" : method,
+                Method = isDecoupling ? method + "_top_decap" : method,
                 TargetPinAngle = targetPinAngle,
                 StandoffMils = standoffMils,
                 PinSlot = slot,
                 AngleOffsetDeg = angleOffsetDeg,
                 RotationDeg = rotation,
-                Layer = isDecoupling ? "bottom" : "top",
-                Mirror = isDecoupling,
+                Layer = "top",
+                Mirror = false,
             };
         }
 

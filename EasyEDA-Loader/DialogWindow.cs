@@ -1055,7 +1055,7 @@ namespace EasyEDA_Loader
             string.IsNullOrWhiteSpace(PartInfo.LibraryType)
                 ? ""
                 : (PartInfo.IsBasic ? "Basic" : "Extended");
-        public string StockDisplay => PartInfo.Stock > 0 ? PartInfo.Stock.ToString("N0") : "";
+        public string StockDisplay => PartInfo.Stock > 0 ? PartInfo.Stock.ToString("N0") : "—";
 
         public PartInfoViewModel(EasyedaApi.PartInfo partInfo, DialogWindow parentWindow)
         {

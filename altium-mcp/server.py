@@ -504,6 +504,71 @@ def _register_tools(server: FastMCP) -> None:
             return _json({"error": str(exc)})
 
     @server.tool()
+    def run_clearance_drc(
+        min_clearance_mils: float = 6.0,
+        power_min_clearance_mils: float = 8.0,
+    ) -> str:
+        """Full / clearance DRC from the latest Altium export or Documents/AltiumEE reports.
+
+        Prefers the extension Full PCB DRC (Altium batch + MCP extras: power clearance,
+        pad↔track, neckdown, via↔pad). Falls back to geometric clearance analysis.
+        """
+        try:
+            from drc_clearance import analyze_connectivity
+
+            data = store.ensure_loaded()
+            return _json(
+                analyze_connectivity(
+                    data,
+                    min_clearance_mils=min_clearance_mils,
+                    power_min_clearance_mils=power_min_clearance_mils,
+                )
+            )
+        except Exception as exc:
+            return _json({"error": str(exc)})
+
+    @server.tool()
+    def suggest_via_stitch_plan(
+        pitch_mils: float = 50.0,
+        fence_offset_mils: float = 30.0,
+    ) -> str:
+        """Preview GND via-stitch locations along RF and HighSpeed (clock) nets from export.
+
+        Does not place vias — use the Altium MCP panel button 'Stitch Vias (RF / Clocks)' for that.
+        """
+        try:
+            data = store.ensure_loaded()
+            classified = store.classify_nets()
+            assignments = classified.get("assignments") or classified
+            target = set()
+            for cls in ("RF", "HighSpeed"):
+                for n in assignments.get(cls) or []:
+                    target.add(n)
+            tracks = ((data.get("pcb") or {}).get("routing") or {}).get("tracks") or []
+            copper = [
+                t
+                for t in tracks
+                if (t.get("net") in target)
+                and (t.get("electrical") is not False)
+                and t.get("layer")
+                and "courtyard" not in str(t.get("layer")).casefold()
+                and "assembly" not in str(t.get("layer")).casefold()
+                and "component center" not in str(t.get("layer")).casefold()
+            ]
+            return _json(
+                {
+                    "rf_hs_net_count": len(target),
+                    "nets": sorted(target)[:40],
+                    "track_count": len(copper),
+                    "pitch_mils": pitch_mils,
+                    "fence_offset_mils": fence_offset_mils,
+                    "note": "Press 'Stitch Vias (RF / Clocks)' in the Altium MCP Control Panel to place GND vias.",
+                }
+            )
+        except Exception as exc:
+            return _json({"error": str(exc)})
+
+    @server.tool()
     def classify_nets() -> str:
         """Deterministic RF / PWR / HighSpeed / Logic net classification with series-chain propagation.
 
@@ -594,6 +659,8 @@ def _register_online_routes(server: FastMCP, api_key: str) -> None:
                     "get_pcb_design_summary",
                     "list_pcb_tracks",
                     "list_pcb_planes",
+                    "run_clearance_drc",
+                    "suggest_via_stitch_plan",
                     "classify_nets",
                     "suggest_net_class",
                 ],
@@ -604,6 +671,8 @@ def _register_online_routes(server: FastMCP, api_key: str) -> None:
                     "Use trace_power_path for rail-to-pin decoupling (e.g. 3v3 to IC1 VDDP3P); use trace_connection for signal paths.",
                     "Use build_ic_placement_plan / generate_all_ic_cluster_plan for pin_near + chain placement; update_placement_move to fix positions.",
                     "Use get_pcb_design_summary / list_pcb_tracks / list_pcb_planes for PCB validation after export.",
+                    "Use run_clearance_drc / Full PCB DRC before fab — Altium rules + MCP extras (clearance, neckdown, pad-track).",
+                    "After routing RF/clocks, use Altium panel 'Stitch Vias (RF / Clocks)' (suggest_via_stitch_plan for preview).",
                     "Do not guess connectivity from schematic PDFs when MCP data is available.",
                 ],
                 "connectivity": status,

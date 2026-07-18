@@ -274,7 +274,7 @@ namespace EasyEDA_Loader.Placement
                 foreach (var net in PlacementConstants.ProjectNets(data))
                 {
                     var netName = PlacementConstants.JsonStr(net["name"]).Trim();
-                    if (string.IsNullOrEmpty(netName) || PlacementConstants.IsGlobalRail(netName))
+                    if (string.IsNullOrEmpty(netName) || PlacementConstants.IsPlaneNet(netName))
                         continue;
 
                     var members = new List<string>();

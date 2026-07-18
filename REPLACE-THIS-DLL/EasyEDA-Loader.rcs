@@ -1,0 +1,136 @@
+PL 
+    EasyEDA-Loader:EasyEDARun
+	Command='EasyEDA-Loader:EasyEDARun'
+	Caption='EasyEDA Loader'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params=''
+	Description='Load a component from EasyEDA'
+End
+
+PL 
+    EasyEDA-Loader:EasyEDAExportConnectivity
+	Command='EasyEDA-Loader:EasyEDAExportConnectivity'
+	Caption='Export Project for MCP'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params=''
+	Description='Export all schematic sheets and PCB data for AI/MCP tools'
+End
+
+PL 
+    EasyEDA-Loader:EasyEDAMcpPanel
+	Command='EasyEDA-Loader:EasyEDAMcpPanel'
+	Caption='MCP Control Panel'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params=''
+	Description='Export project data, start MCP server, and cluster IC parts'
+End
+
+PL 
+    EasyEDA-Loader:EasyEDAClusterAllIcParts
+	Command='EasyEDA-Loader:EasyEDAClusterAllIcParts'
+	Caption='Cluster All ICs and Modules'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params=''
+	Description='Cluster support parts around every IC and U module on the PCB'
+End
+
+PL 
+    EasyEDA-Loader:EasyEDAClusterIcParts
+	Command='EasyEDA-Loader:EasyEDAClusterIcParts'
+	Caption='Cluster One IC or Module'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params='IC1'
+	Description='Cluster support parts around one IC/U module (Params: designator, e.g. IC1)'
+End
+
+Insertion _User1 TargetID='MNNoDocument_File' RefID0='NoDoc' 
+    Link _User2 PLID='EasyEDA-Loader:EasyEDARun'      End
+End
+Insertion _User3 TargetID='MNSchematic_File' RefID0='SchDoc_File' 
+    Link _User4 PLID='EasyEDA-Loader:EasyEDARun'      End
+End
+Insertion _User5 TargetID='MNSchematic_File' RefID0='SchDoc_File' 
+    Link _User6 PLID='EasyEDA-Loader:EasyEDAExportConnectivity'      End
+End
+Insertion _User7 TargetID='MNSchematic_File' RefID0='SchDoc_File' 
+    Link _User8 PLID='EasyEDA-Loader:EasyEDAMcpPanel'      End
+End
+Insertion _User9 TargetID='MNSchematic_Tools10' RefID0='SchDoc_Tools' 
+    Link _User10 PLID='EasyEDA-Loader:EasyEDARun'      End
+End
+Insertion _User11 TargetID='MNSchematic_Tools10' RefID0='SchDoc_Tools' 
+    Link _User12 PLID='EasyEDA-Loader:EasyEDAExportConnectivity'      End
+End
+Insertion _User13 TargetID='MNSchematic_Tools10' RefID0='SchDoc_Tools' 
+    Link _User14 PLID='EasyEDA-Loader:EasyEDAMcpPanel'      End
+End
+Insertion _User15 TargetID='MNSchematic_SchLibMenu10' RefID0='SchLib_File' 
+    Link _User16 PLID='EasyEDA-Loader:EasyEDARun'      End
+End
+Insertion _User17 TargetID='MNSchematic_SchLibMenuTools10' RefID0='SchLib_Tools' 
+    Link _User18 PLID='EasyEDA-Loader:EasyEDARun'      End
+End
+Insertion _User19 TargetID='MNPCBLib_10' RefID0='PcbLib_File' 
+    Link _User20 PLID='EasyEDA-Loader:EasyEDARun'      End
+End
+Insertion _User21 TargetID='MNPCBLib_Tools10' RefID0='PcbLib_Tools' 
+    Link _User22 PLID='EasyEDA-Loader:EasyEDARun'      End
+End
+Insertion _User23 TargetID='MNPCB_File' RefID0='PcbDoc_File' 
+    Link _User24 PLID='EasyEDA-Loader:EasyEDARun'      End
+End
+Insertion _User25 TargetID='MNPCB_File' RefID0='PcbDoc_File' 
+    Link _User26 PLID='EasyEDA-Loader:EasyEDAExportConnectivity'      End
+End
+Insertion _User27 TargetID='MNPCB_File' RefID0='PcbDoc_File' 
+    Link _User28 PLID='EasyEDA-Loader:EasyEDAMcpPanel'      End
+End
+Insertion _User29 TargetID='MNPCB_File' RefID0='PcbDoc_File' 
+    Link _User30 PLID='EasyEDA-Loader:EasyEDAClusterAllIcParts'      End
+End
+Insertion _User31 TargetID='MNPCB_File' RefID0='PcbDoc_File' 
+    Link _User32 PLID='EasyEDA-Loader:EasyEDAClusterIcParts'      End
+End
+Insertion _User33 TargetID='MNPCB_Tools10' RefID0='PcbDoc_Tools' 
+    Link _User34 PLID='EasyEDA-Loader:EasyEDARun'      End
+End
+Insertion _User35 TargetID='MNPCB_Tools10' RefID0='PcbDoc_Tools' 
+    Link _User36 PLID='EasyEDA-Loader:EasyEDAExportConnectivity'      End
+End
+Insertion _User37 TargetID='MNPCB_Tools10' RefID0='PcbDoc_Tools' 
+    Link _User38 PLID='EasyEDA-Loader:EasyEDAMcpPanel'      End
+End
+Insertion _User39 TargetID='MNPCB_Tools10' RefID0='PcbDoc_Tools' 
+    Link _User40 PLID='EasyEDA-Loader:EasyEDAClusterAllIcParts'      End
+End
+Insertion _User41 TargetID='MNSchematicMenu' InsertType='After' RefID0='MNSchematic_Help10' 
+    Link _User42 PLID='EasyEDA-Loader:EasyEDAMcpPanel'      End
+End
+Insertion _User43 TargetID='MNSchematicMenu' InsertType='After' RefID0='MNSchematic_Help10' 
+    Link _User44 PLID='EasyEDA-Loader:EasyEDAExportConnectivity'      End
+End
+Insertion _User45 TargetID='MNSchematicMenu' InsertType='After' RefID0='MNSchematic_Help10' 
+    Link _User46 PLID='EasyEDA-Loader:EasyEDARun'      End
+End
+Insertion _User47 TargetID='MNPCBMenu' InsertType='After' RefID0='MNPCB_Help10' 
+    Link _User48 PLID='EasyEDA-Loader:EasyEDAMcpPanel'      End
+End
+Insertion _User49 TargetID='MNPCBMenu' InsertType='After' RefID0='MNPCB_Help10' 
+    Link _User50 PLID='EasyEDA-Loader:EasyEDAClusterAllIcParts'      End
+End
+Insertion _User51 TargetID='MNPCBMenu' InsertType='After' RefID0='MNPCB_Help10' 
+    Link _User52 PLID='EasyEDA-Loader:EasyEDAClusterIcParts'      End
+End
+Insertion _User53 TargetID='MNPCBMenu' InsertType='After' RefID0='MNPCB_Help10' 
+    Link _User54 PLID='EasyEDA-Loader:EasyEDARun'      End
+End

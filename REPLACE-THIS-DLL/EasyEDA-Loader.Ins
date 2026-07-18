@@ -1,0 +1,40 @@
+ClientInsFile 1.0
+
+
+
+Server
+
+    EditorName        = 'EasyEDA-Loader'
+
+    EditorExePath     = 'EasyEDA-Loader.DLL'
+
+    EditorDescription = 'EasyEDA Loader, MCP export, and IC cluster placement for Altium.'
+
+    Version           = 'Version 1.1.0.0'
+
+    Date              = '19-June-2026'
+
+    HelpAboutInfo     = 'This software is protected by copyright law and international treaties.'
+
+    Copyright         = 'Copyright Expired 2025'
+
+    Updates           = 'AdvSch'
+
+    SystemExtension   = False
+
+End
+
+
+
+Command Name = 'EasyEDARun'      LongSummary = 'Loads EasyEDA component from server' End
+
+Command Name = 'EasyEDAExportConnectivity'      LongSummary = 'Exports full project design data JSON for MCP' End
+
+Command Name = 'EasyEDAMcpPanel'      LongSummary = 'Opens Altium MCP control panel' End
+
+Command Name = 'EasyEDAApplyPlacementPlan'      LongSummary = 'Applies placement_plan.json to the active PCB' End
+
+Command Name = 'EasyEDAClusterIcParts'      LongSummary = 'Cluster support parts around one IC/U module on the PCB' End
+
+Command Name = 'EasyEDAClusterAllIcParts'      LongSummary = 'Cluster support parts around all IC/U modules on the PCB' End
+

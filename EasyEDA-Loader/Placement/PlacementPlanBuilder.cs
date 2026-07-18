@@ -149,8 +149,8 @@ namespace EasyEDA_Loader.Placement
                     ["xMils"] = Math.Round(targetX, 3),
                     ["yMils"] = Math.Round(targetY, 3),
                     ["rotation"] = rotation.HasValue ? (JToken)rotation.Value : JValue.CreateNull(),
-                    // Target board side: "top" or "bottom". Decoupling caps target the
-                    // bottom side directly under the IC pin; everything else stays on top.
+                    // Target board side: "top" or "bottom". Decoupling stays on top for
+                    // multilayer boards (short fanout + via to mid plane).
                     ["layer"] = string.IsNullOrWhiteSpace(layer) ? "top" : layer,
                     ["mirror"] = mirror,
                     ["method"] = method,
@@ -201,8 +201,8 @@ namespace EasyEDA_Loader.Placement
                         .Where(m => !string.IsNullOrEmpty(m))
                         .ToList();
 
-                    // Decoupling caps need the dedicated bottom-side, pin-accurate
-                    // layout. RF matching chains use the Pi/T placement below.
+                    // Decoupling caps use pin-accurate top-side layout (via to mid plane).
+                    // RF matching chains use the Pi/T placement below.
                     var chainItems = members
                         .Where(member => supportByDes.ContainsKey(member))
                         .Select(member => supportByDes[member])
@@ -245,6 +245,8 @@ namespace EasyEDA_Loader.Placement
                             item, index, members.Count, anchorXy, spacingMils, maxRadiusMils, placedPoints,
                             previousXy, chainPinXy, chainPcbComp, keepoutBoxes, pcbObstacles, placedLayers, placedHalfSizes);
                         previousXy = Tuple.Create(result.X, result.Y);
+                        var chainRot = PlacementLayout.SuggestPassiveRotationDeg(
+                            item, previousXy, chainPinXy ?? previousXy, chainPcbComp);
                         AppendMove(
                             item,
                             result.X,
@@ -255,7 +257,7 @@ namespace EasyEDA_Loader.Placement
                             result.PinSlot,
                             result.AngleOffsetDeg,
                             meta,
-                            null);
+                            chainRot);
                     }
                 }
             }
@@ -548,7 +550,7 @@ namespace EasyEDA_Loader.Placement
                     adjustedCount++;
                 }
 
-                var validationGap = Math.Max(spacingMils * 0.25, 20.0);
+                var validationGap = Math.Max(spacingMils * 0.5, 28.0);
                 var stillBlocked = occupied.Any(box =>
                     PlacementLayout.BoxesOverlap(
                         movingBox,

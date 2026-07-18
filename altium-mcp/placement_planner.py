@@ -65,14 +65,39 @@ def _is_global_rail(net_name: str) -> bool:
     return "gnd" in text and len(text) <= 6
 
 
-def _is_local_net_name(net_name: str) -> bool:
-    text = str(net_name or "").strip()
+def _is_gnd_net(net_name: str) -> bool:
+    text = str(net_name or "").strip().casefold()
     if not text:
         return False
-    if _is_global_rail(text):
+    if text in {"gnd", "agnd", "dgnd", "pgnd", "vss"}:
+        return True
+    return _is_global_rail(text) and "gnd" in text
+
+
+def _is_power_plane_net(net_name: str) -> bool:
+    text = str(net_name or "").strip().casefold()
+    if not text or _is_gnd_net(text):
+        return False
+    if text in GLOBAL_RAIL_NAMES:
+        return True
+    return _looks_like_power_net(text)
+
+
+def _is_plane_net(net_name: str) -> bool:
+    return _is_gnd_net(net_name) or _is_power_plane_net(net_name)
+
+
+def _is_local_net_name(net_name: str) -> bool:
+    text = str(net_name or "").strip()
+    if not text or _is_global_rail(text):
         return False
     upper = text.upper()
-    return upper.startswith("NETIC") or upper.startswith("NETC") or upper.startswith("NETR")
+    return (
+        upper.startswith("NETIC")
+        or upper.startswith("NETC")
+        or upper.startswith("NETR")
+        or upper.startswith("NETU")
+    )
 
 
 def _is_decoupling_cap(component: dict[str, Any], net_name: str) -> bool:
@@ -80,21 +105,36 @@ def _is_decoupling_cap(component: dict[str, Any], net_name: str) -> bool:
     if not designator.startswith("C"):
         return False
     pin_nets = [str(pin.get("net", "")).strip() for pin in component.get("pins") or []]
+    pin_nets = [n for n in pin_nets if n]
     if not pin_nets:
         return False
     target = str(net_name).strip()
-    has_target = any(net == target for net in pin_nets)
-    has_gnd = any(_is_global_rail(net) and "gnd" in net.casefold() for net in pin_nets) or any(
-        pin.casefold() in {"gnd", "vss", "agnd"} for pin in pin_nets
-    )
-    return has_target and has_gnd
+    has_target = any(net.casefold() == target.casefold() for net in pin_nets)
+    has_gnd = any(_is_gnd_net(net) for net in pin_nets)
+    has_power = any(_is_power_plane_net(net) for net in pin_nets)
+    return has_target and has_gnd and has_power
 
 
 def _looks_like_power_net(net_name: str) -> bool:
     text = str(net_name or "").strip().casefold()
-    if not text or _is_global_rail(text):
+    if not text or _is_gnd_net(text):
         return False
-    return any(hint in text for hint in ("vcc", "vdd", "vbat", "vin", "3v3", "1v8", "2v5"))
+    if text in GLOBAL_RAIL_NAMES:
+        return True
+    return any(hint in text for hint in ("vcc", "vdd", "vbat", "vin", "vout", "vbus", "3v3", "1v8", "2v5", "5v", "12v"))
+
+
+def _net_specificity(net_name: str) -> int:
+    text = str(net_name or "").strip()
+    if not text:
+        return 0
+    if _is_gnd_net(text):
+        return 0
+    if _is_power_plane_net(text):
+        return 15
+    if _is_local_net_name(text):
+        return 100
+    return 80
 
 
 def _net_members(net: dict[str, Any] | None) -> list[dict[str, Any]]:
@@ -134,17 +174,6 @@ def collect_ic_nets(data: dict[str, Any], ic_designator: str) -> set[str]:
             if net and net.casefold() not in {"no net", "nonet", "unconnected"}:
                 nets.add(net)
     return nets
-
-
-def _net_specificity(net_name: str) -> int:
-    text = str(net_name or "").strip()
-    if not text or _is_global_rail(text):
-        if "gnd" in text.casefold():
-            return 0
-        return 20
-    if _is_local_net_name(text):
-        return 100
-    return 80
 
 
 def _passive_pin_nets(component: dict[str, Any]) -> set[str]:
@@ -242,7 +271,8 @@ def _resolve_primary_ic_link(
         net = str(pin_info.get("net", "")).strip()
         if not net or net not in passive_nets:
             continue
-        if _is_global_rail(net) and "gnd" in net.casefold() and len(passive_nets - {net}) > 0:
+        has_non_plane = any(not _is_plane_net(n) for n in passive_nets)
+        if has_non_plane and _is_plane_net(net):
             continue
         layout = pin_layout.get(pin_number, {})
         direct_links.append(
@@ -273,16 +303,14 @@ def _resolve_primary_ic_link(
             "linked_ic_pins": direct_links,
         }
 
-    if str(component.get("designator", "")).upper().startswith("C") and "3v3" in {
-        n.casefold() for n in passive_nets
-    }:
+    if str(component.get("designator", "")).upper().startswith("C") and any(
+        _is_power_plane_net(n) for n in passive_nets
+    ) and any(_is_gnd_net(n) for n in passive_nets):
         power_candidates: list[dict[str, Any]] = []
         for pin_number, pin_info in ic_pin_index.items():
             net = str(pin_info.get("net", "")).strip()
             pin_name = str(pin_info.get("pin_name", "")).strip()
-            if net.casefold() not in {"3v3", "3.3v", "vcc", "vcc3v3"} and not POWER_PIN_NAME.search(
-                pin_name
-            ):
+            if not _is_power_plane_net(net) and not POWER_PIN_NAME.search(pin_name):
                 continue
             layout = pin_layout.get(pin_number, {})
             distance = None
@@ -311,7 +339,7 @@ def _resolve_primary_ic_link(
             )
             primary = power_candidates[0]
             return {
-                "primary_net": "3v3",
+                "primary_net": primary["net"],
                 "primary_ic_pin": primary["pin"],
                 "primary_ic_pin_name": primary.get("pin_name"),
                 "pin_angle_deg": primary.get("pin_angle_deg"),
@@ -359,8 +387,16 @@ def _should_include_passive(
     if exclude_global_nets and _is_global_rail(net_name):
         if not designator.startswith("C"):
             return False, "global_rail_non_cap"
+        if not _is_decoupling_cap(component, net_name):
+            return False, "global_rail_not_decoupling"
         if sch_distance is None or sch_distance > max_schematic_distance_mils:
             return False, "global_rail_far"
+        exclusive = _exclusive_to_anchor(net, anchor)
+        nf = _parse_cap_value_nf(component.get("comment"))
+        if nf is not None and nf > 12000.0 and not exclusive:
+            return False, "global_rail_bulk_shared"
+        if not exclusive and sch_distance > max_schematic_distance_mils * 0.55:
+            return False, "global_rail_shared_far"
         return True, "nearby_decoupling"
 
     if sch_distance is not None and sch_distance <= max_schematic_distance_mils:
@@ -838,7 +874,7 @@ def _chain_target_xy(
     angle_offset_deg = 0.0
     min_sep = max(spacing_mils * 0.85, 70.0)
     body_radius = _passive_body_radius_mils(item, None)
-    step = max(spacing_mils * 0.9, body_radius * 2.0 + max(spacing_mils * 0.4, 30.0))
+    step = max(spacing_mils * 0.75, body_radius * 2.0 + max(spacing_mils * 0.28, 18.0))
 
     origin = previous_xy if (chain_index > 0 and previous_xy is not None) else (pin_xy or anchor_xy)
     standoff = _role_standoff_mils(role, spacing_mils) if chain_index == 0 else step
@@ -1555,9 +1591,9 @@ def _suggest_passive_rotation_deg(
     angle = math.degrees(math.atan2(dy, dx))
     snapped = round(angle / 90.0) * 90.0 % 360.0
 
-    nets = {str(net).strip().upper() for net in (item.get("nets") or [])}
-    if "GND" in nets and len(nets) >= 2:
-        # Flip so the non-GND pad sits closer to the IC pin (long axis unchanged).
+    nets = {str(net).strip() for net in (item.get("nets") or [])}
+    # Orient so the non-plane pad faces the IC pin; plane pad (GND/VCC) faces away for via.
+    if len(nets) >= 2 and any(_is_plane_net(n) for n in nets):
         snapped = (snapped + 180.0) % 360.0
 
     current = (pcb_component or {}).get("placement") or {}
@@ -1597,15 +1633,15 @@ def _should_use_rf_pi_t_placement(
         return False
     if item.get("primary_role") == "decoupling":
         return False
-    primary_net = str(item.get("primary_net") or "").strip().upper()
-    if primary_net in {"3V3", "3.3V", "GND", "XTA"} or _is_global_rail(primary_net):
+    primary_net = str(item.get("primary_net") or "").strip()
+    if _is_plane_net(primary_net) or primary_net.upper() == "XTA":
         return False
     return True
 
 
 def _is_rf_shunt_to_gnd(item: dict[str, Any]) -> bool:
-    nets = {str(net).strip().upper() for net in (item.get("nets") or [])}
-    return "GND" in nets and len(nets) >= 2
+    nets = {str(net).strip() for net in (item.get("nets") or [])}
+    return any(_is_gnd_net(n) for n in nets) and len(nets) >= 2
 
 
 def _rf_pi_t_target_xy(
@@ -1818,18 +1854,16 @@ def _pin_accurate_target_xy(
     is_decoupling = role == "decoupling"
     body_radius = _passive_body_radius_mils(item, pcb_component)
 
-    # Decoupling caps go on the BOTTOM side, directly under the IC power pin, with a
-    # minimal standoff so the cap's near pad sits at the pin pad edge -- shortest
-    # via-to-pin current loop for high-frequency decoupling. Other support passives
-    # stay on top at the usual pin-edge standoff.
+    # Multilayer boards with internal GND/PWR planes: keep decoupling on TOP
+    # beside the IC pin (short surface fanout + via to plane).
     if is_decoupling:
         standoff = (
             body_radius
-            + max(spacing_mils * 0.15, 8.0)
-            + slot * spacing_mils * 0.45
-            - cap_rank * spacing_mils * 0.15
+            + max(spacing_mils * 0.35, 18.0)
+            + slot * spacing_mils * 0.55
+            - cap_rank * spacing_mils * 0.12
         )
-        standoff = max(standoff, body_radius + 4.0)
+        standoff = max(standoff, body_radius + 12.0)
     else:
         standoff = (
             _pin_edge_standoff_mils(role, spacing_mils)
@@ -1887,22 +1921,17 @@ def _pin_accurate_target_xy(
         else math.hypot(x - anchor_pcb_xy[0], y - anchor_pcb_xy[1])
     )
     rotation = _suggest_passive_rotation_deg(item, (x, y), pin_xy, pcb_component)
-    # Bottom-side decoupling caps are flipped via FlipXY at apply time, which mirrors
-    # the component and swaps pad positions. Adding 180 deg compensates so the VCC pad
-    # still faces the IC pin (short via) and the GND pad faces the ground plane.
-    if is_decoupling and rotation is not None:
-        rotation = (rotation + 180.0) % 360.0
     return (
         x,
         y,
-        method + ("_bottom" if is_decoupling else ""),
+        method + ("_top_decap" if is_decoupling else ""),
         float(target_pin_angle) if target_pin_angle is not None else None,
         float(standoff_mils),
         slot,
         float(angle_offset_deg),
         rotation,
-        "bottom" if is_decoupling else "top",
-        bool(is_decoupling),
+        "top",
+        False,
     )
 
 
@@ -2160,6 +2189,10 @@ def _build_moves_for_grouping(
                     pin_xy=chain_pin_xy,
                 )
                 previous_xy = (target_x, target_y)
+                chain_pcb = pcb_components.get(member)
+                chain_rot = _suggest_passive_rotation_deg(
+                    item, previous_xy, chain_pin_xy or previous_xy, chain_pcb
+                )
                 append_move(
                     item,
                     target_x,
@@ -2170,6 +2203,7 @@ def _build_moves_for_grouping(
                     pin_slot=pin_slot,
                     angle_offset_deg=angle_offset_deg,
                     chain_meta=meta,
+                    rotation_deg=chain_rot,
                 )
 
     for index, item in enumerate(grouping["support_components"]):

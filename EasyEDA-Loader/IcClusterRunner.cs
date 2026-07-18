@@ -275,6 +275,16 @@ namespace EasyEDA_Loader
                     summary += $"\nDesignator resize skipped: {ex.Message}";
                 }
 
+                // Professional follow-ups: rooms (confinement) + optional unions for cluster drag.
+                try
+                {
+                    summary += "\n" + PlacementRooms.CreateRoomsFromLastPlan(alsoAnchorUnions: true);
+                }
+                catch (Exception ex)
+                {
+                    summary += "\nRooms skipped: " + ex.Message;
+                }
+
                 return summary;
             }
             finally

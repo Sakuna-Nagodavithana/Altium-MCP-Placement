@@ -1,0 +1,262 @@
+PL 
+    Altium-MCP-Placement:EasyEDARun
+	Command='Altium-MCP-Placement:EasyEDARun'
+	Caption='EasyEDA Component Loader'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params=''
+	Description='Load a component from EasyEDA'
+End
+
+PL 
+    Altium-MCP-Placement:EasyEDAExportConnectivity
+	Command='Altium-MCP-Placement:EasyEDAExportConnectivity'
+	Caption='Export Project for MCP'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params=''
+	Description='Export all schematic sheets and PCB data for AI/MCP tools'
+End
+
+PL 
+    Altium-MCP-Placement:EasyEDAMcpPanel
+	Command='Altium-MCP-Placement:EasyEDAMcpPanel'
+	Caption='MCP Control Panel'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params=''
+	Description='Export project data, start MCP server, and place support passives'
+End
+
+PL 
+    Altium-MCP-Placement:EasyEDAClusterAllIcParts
+	Command='Altium-MCP-Placement:EasyEDAClusterAllIcParts'
+	Caption='Place Support Passives (All ICs)'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params=''
+	Description='Pin-accurate placement of support parts around every IC and U module'
+End
+
+PL 
+    Altium-MCP-Placement:EasyEDAClusterIcParts
+	Command='Altium-MCP-Placement:EasyEDAClusterIcParts'
+	Caption='Place Passives (One IC)'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params='IC1'
+	Description='Place support passives around one IC/U module (Params: designator, e.g. IC1)'
+End
+
+PL 
+    Altium-MCP-Placement:EasyEDARunClearanceDrc
+	Command='Altium-MCP-Placement:EasyEDARunClearanceDrc'
+	Caption='MCP Full PCB DRC'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params=''
+	Description='Altium batch DRC + MCP extras (clearance, neckdown, pad-track); opens error list'
+End
+
+PL 
+    Altium-MCP-Placement:EasyEDAViaStitch
+	Command='Altium-MCP-Placement:EasyEDAViaStitch'
+	Caption='Stitch Vias (RF / Clocks)'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params=''
+	Description='Place GND fence vias along RF and HighSpeed (clock) routes after routing'
+End
+
+PL 
+    Altium-MCP-Placement:EasyEDADesignWorkflow
+	Command='Altium-MCP-Placement:EasyEDADesignWorkflow'
+	Caption='Expert Process Guide'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params=''
+	Description='Expert schematic-to-fab checklist, playbook, and route priority'
+End
+
+PL 
+    Altium-MCP-Placement:EasyEDAStackupAdvisor
+	Command='Altium-MCP-Placement:EasyEDAStackupAdvisor'
+	Caption='JLCPCB Stackup Advisor'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params=''
+	Description='Pick JLCPCB stackup and validate PCB layer count'
+End
+
+PL 
+    Altium-MCP-Placement:EasyEDARoutePriority
+	Command='Altium-MCP-Placement:EasyEDARoutePriority'
+	Caption='Route Priority (RF first)'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params=''
+	Description='Net list in expert order RF → HighSpeed → PWR → Logic'
+End
+
+PL 
+    Altium-MCP-Placement:EasyEDACreateRooms
+	Command='Altium-MCP-Placement:EasyEDACreateRooms'
+	Caption='Create Placement Rooms'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params=''
+	Description='Create Altium Rooms around each IC cluster'
+End
+
+PL 
+    Altium-MCP-Placement:EasyEDAFanoutDecap
+	Command='Altium-MCP-Placement:EasyEDAFanoutDecap'
+	Caption='Fanout Decap Vias'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params=''
+	Description='Place plane vias at decoupling and IC power/GND pads'
+End
+
+PL 
+    Altium-MCP-Placement:EasyEDAFloorplanPreview
+	Command='Altium-MCP-Placement:EasyEDAFloorplanPreview'
+	Caption='Floorplan Preview'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params=''
+	Description='Preview and apply board floorplan layouts (auto / mm / DXF)'
+End
+
+PL 
+    Altium-MCP-Placement:EasyEDABoardNeeds
+	Command='Altium-MCP-Placement:EasyEDABoardNeeds'
+	Caption='Board Needs (Stackup/Heat/Vias)'
+	Image=''
+	Shortcut1=''
+	Shortcut2=''
+	Params=''
+	Description='Recommend stackup, impedance, vias, and thermal actions from MCU/RF/power'
+End
+
+Insertion _User1 TargetID='MNNoDocument_File' RefID0='NoDoc' 
+    Link _User2 PLID='Altium-MCP-Placement:EasyEDARun'      End
+End
+Insertion _User3 TargetID='MNSchematic_File' RefID0='SchDoc_File' 
+    Link _User4 PLID='Altium-MCP-Placement:EasyEDARun'      End
+End
+Insertion _User5 TargetID='MNSchematic_File' RefID0='SchDoc_File' 
+    Link _User6 PLID='Altium-MCP-Placement:EasyEDAExportConnectivity'      End
+End
+Insertion _User7 TargetID='MNSchematic_File' RefID0='SchDoc_File' 
+    Link _User8 PLID='Altium-MCP-Placement:EasyEDAMcpPanel'      End
+End
+Insertion _User9 TargetID='MNSchematic_Tools10' RefID0='SchDoc_Tools' 
+    Link _User10 PLID='Altium-MCP-Placement:EasyEDARun'      End
+End
+Insertion _User11 TargetID='MNSchematic_Tools10' RefID0='SchDoc_Tools' 
+    Link _User12 PLID='Altium-MCP-Placement:EasyEDAExportConnectivity'      End
+End
+Insertion _User13 TargetID='MNSchematic_Tools10' RefID0='SchDoc_Tools' 
+    Link _User14 PLID='Altium-MCP-Placement:EasyEDAMcpPanel'      End
+End
+Insertion _User15 TargetID='MNSchematic_SchLibMenu10' RefID0='SchLib_File' 
+    Link _User16 PLID='Altium-MCP-Placement:EasyEDARun'      End
+End
+Insertion _User17 TargetID='MNSchematic_SchLibMenuTools10' RefID0='SchLib_Tools' 
+    Link _User18 PLID='Altium-MCP-Placement:EasyEDARun'      End
+End
+Insertion _User19 TargetID='MNPCBLib_10' RefID0='PcbLib_File' 
+    Link _User20 PLID='Altium-MCP-Placement:EasyEDARun'      End
+End
+Insertion _User21 TargetID='MNPCBLib_Tools10' RefID0='PcbLib_Tools' 
+    Link _User22 PLID='Altium-MCP-Placement:EasyEDARun'      End
+End
+Insertion _User23 TargetID='MNPCB_File' RefID0='PcbDoc_File' 
+    Link _User24 PLID='Altium-MCP-Placement:EasyEDARun'      End
+End
+Insertion _User25 TargetID='MNPCB_File' RefID0='PcbDoc_File' 
+    Link _User26 PLID='Altium-MCP-Placement:EasyEDAExportConnectivity'      End
+End
+Insertion _User27 TargetID='MNPCB_File' RefID0='PcbDoc_File' 
+    Link _User28 PLID='Altium-MCP-Placement:EasyEDAMcpPanel'      End
+End
+Insertion _User29 TargetID='MNPCB_File' RefID0='PcbDoc_File' 
+    Link _User30 PLID='Altium-MCP-Placement:EasyEDAClusterAllIcParts'      End
+End
+Insertion _User31 TargetID='MNPCB_File' RefID0='PcbDoc_File' 
+    Link _User32 PLID='Altium-MCP-Placement:EasyEDAClusterIcParts'      End
+End
+Insertion _User33 TargetID='MNPCB_Tools10' RefID0='PcbDoc_Tools' 
+    Link _User34 PLID='Altium-MCP-Placement:EasyEDARun'      End
+End
+Insertion _User35 TargetID='MNPCB_Tools10' RefID0='PcbDoc_Tools' 
+    Link _User36 PLID='Altium-MCP-Placement:EasyEDAExportConnectivity'      End
+End
+Insertion _User37 TargetID='MNPCB_Tools10' RefID0='PcbDoc_Tools' 
+    Link _User38 PLID='Altium-MCP-Placement:EasyEDAMcpPanel'      End
+End
+Insertion _User39 TargetID='MNPCB_Tools10' RefID0='PcbDoc_Tools' 
+    Link _User40 PLID='Altium-MCP-Placement:EasyEDAClusterAllIcParts'      End
+End
+Insertion _User54 TargetID='MNPCB_Tools10' RefID0='PcbDoc_Tools' 
+    Link _User55 PLID='Altium-MCP-Placement:EasyEDARunClearanceDrc'      End
+End
+Insertion _User56 TargetID='MNPCB_Tools10' RefID0='PcbDoc_Tools' 
+    Link _User57 PLID='Altium-MCP-Placement:EasyEDAViaStitch'      End
+End
+Insertion _User58 TargetID='MNPCB_Tools10' RefID0='PcbDoc_Tools' 
+    Link _User59 PLID='Altium-MCP-Placement:EasyEDADesignWorkflow'      End
+End
+Insertion _User60 TargetID='MNPCB_Tools10' RefID0='PcbDoc_Tools' 
+    Link _User61 PLID='Altium-MCP-Placement:EasyEDAStackupAdvisor'      End
+End
+Insertion _User62 TargetID='MNPCB_Tools10' RefID0='PcbDoc_Tools' 
+    Link _User63 PLID='Altium-MCP-Placement:EasyEDARoutePriority'      End
+End
+Insertion _User64 TargetID='MNPCB_Tools10' RefID0='PcbDoc_Tools' 
+    Link _User65 PLID='Altium-MCP-Placement:EasyEDACreateRooms'      End
+End
+Insertion _User66 TargetID='MNPCB_Tools10' RefID0='PcbDoc_Tools' 
+    Link _User67 PLID='Altium-MCP-Placement:EasyEDAFanoutDecap'      End
+End
+Insertion _User68 TargetID='MNPCB_Tools10' RefID0='PcbDoc_Tools' 
+    Link _User69 PLID='Altium-MCP-Placement:EasyEDAFloorplanPreview'      End
+End
+Insertion _User70 TargetID='MNPCB_Tools10' RefID0='PcbDoc_Tools' 
+    Link _User71 PLID='Altium-MCP-Placement:EasyEDABoardNeeds'      End
+End
+Insertion _User41 TargetID='MNSchematicMenu' InsertType='After' RefID0='MNSchematic_Help10' 
+    Link _User42 PLID='Altium-MCP-Placement:EasyEDAMcpPanel'      End
+End
+Insertion _User43 TargetID='MNSchematicMenu' InsertType='After' RefID0='MNSchematic_Help10' 
+    Link _User44 PLID='Altium-MCP-Placement:EasyEDAExportConnectivity'      End
+End
+Insertion _User45 TargetID='MNSchematicMenu' InsertType='After' RefID0='MNSchematic_Help10' 
+    Link _User46 PLID='Altium-MCP-Placement:EasyEDARun'      End
+End
+Insertion _User47 TargetID='MNPCBMenu' InsertType='After' RefID0='MNPCB_Help10' 
+    Link _User48 PLID='Altium-MCP-Placement:EasyEDAMcpPanel'      End
+End
+Insertion _User49 TargetID='MNPCBMenu' InsertType='After' RefID0='MNPCB_Help10' 
+    Link _User50 PLID='Altium-MCP-Placement:EasyEDAClusterAllIcParts'      End
+End
+Insertion _User51 TargetID='MNPCBMenu' InsertType='After' RefID0='MNPCB_Help10' 
+    Link _User52 PLID='Altium-MCP-Placement:EasyEDAClusterIcParts'      End
+End
+Insertion _User53 TargetID='MNPCBMenu' InsertType='After' RefID0='MNPCB_Help10' 
+    Link _User54 PLID='Altium-MCP-Placement:EasyEDARun'      End
+End

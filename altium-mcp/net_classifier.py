@@ -25,6 +25,12 @@ from typing import Any
 CLASS_ORDER = ("PWR", "RF", "HighSpeed", "Logic")
 SERIES_PASSIVE_PREFIXES = {"C", "R", "L", "D", "FB", "BEAD", "FERRITE"}
 
+# Broader RF pin names allowed only when the IC comment already matches an RF transceiver.
+RF_COMMENT_GATED_PIN_TOKENS = [
+    "RF_TX", "RF_RX", "TX_RF", "RX_RF", "RFP", "RFN", "RF_P", "RF_N",
+    "ANTENNA", "PA_OUT", "LNA_IN", "TRX", "RFI", "RFO", "RFIO", "ANT",
+]
+
 DEFAULT_PROFILE: dict[str, dict[str, Any]] = {
     "PWR": {
         "netNameTokens": [
@@ -194,7 +200,7 @@ def classify_nets(data: dict[str, Any], profile: dict[str, dict[str, Any]] | Non
     if profile is None:
         profile = load_profile()
 
-    net_to_pins, component_to_pins, _comment, pin_count = _build_indices(data)
+    net_to_pins, component_to_pins, component_comment, pin_count = _build_indices(data)
 
     # Include every net name from the export (projectNets preferred, else net->pins keys).
     net_names: list[str] = []
@@ -212,8 +218,10 @@ def classify_nets(data: dict[str, Any], profile: dict[str, dict[str, Any]] | Non
     pwr_tokens = profile["PWR"]["netNameTokens"]
     rf_name = profile["RF"]["netNameTokens"]
     rf_pin = profile["RF"]["pinNameTokens"]
+    rf_comment = profile["RF"].get("componentCommentTokens") or []
     hs_name = profile["HighSpeed"]["netNameTokens"]
     hs_pin = profile["HighSpeed"]["pinNameTokens"]
+    hs_comment = profile["HighSpeed"].get("componentCommentTokens") or []
 
     assigned: dict[str, str] = {}
     queue: deque[str] = deque()
@@ -236,6 +244,23 @@ def classify_nets(data: dict[str, Any], profile: dict[str, dict[str, Any]] | Non
                 if _matches_tokens(pin["pinName"], hs_pin):
                     seed = "HighSpeed"
                     break
+
+            # Comment-gated broader pin tokens (RF transceiver IC only).
+            if seed is None:
+                for pin in net_to_pins.get(net, []):
+                    comment = component_comment.get(pin["designator"], "")
+                    if not comment:
+                        continue
+                    if _matches_tokens(comment, rf_comment) and _matches_tokens(
+                        pin["pinName"], RF_COMMENT_GATED_PIN_TOKENS
+                    ):
+                        seed = "RF"
+                        break
+                    if _matches_tokens(comment, hs_comment) and _matches_tokens(
+                        pin["pinName"], hs_pin
+                    ):
+                        seed = "HighSpeed"
+                        break
 
         if seed:
             assigned[net] = seed
