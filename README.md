@@ -28,34 +28,143 @@ Inspired by how **Altium** does rooms / Arrange Within Room / Optimal Placement 
 
 ---
 
-## Requirements
+## Setup (full guide)
 
-- **Altium Designer** (tested with AD24)
-- **Visual Studio 2022 Build Tools** — “.NET desktop build tools” workload
-- **Python 3.10+** (optional — only for `altium-mcp/`)
-- Windows
+### 1. Prerequisites
 
-Altium / DevExpress DLLs are **not** in this repo (licensing). `build-and-deploy.ps1` copies them from your Altium install.
+Install these on Windows first:
 
----
+| Software | Why |
+|----------|-----|
+| **[Altium Designer](https://www.altium.com/)** (AD24 or similar) | Host for the extension |
+| **[Visual Studio 2022 Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)** with workload **“.NET desktop build tools”** | Compiles the C# extension |
+| **[Git](https://git-scm.com/)** | Clone this repo |
+| **[Python 3.10+](https://www.python.org/downloads/)** (optional) | Only if you want the Cursor MCP server |
 
-## Quick start — build & install
+Confirm MSBuild exists (typical path):
 
-1. **Close Altium** (it locks the extension DLL).
-2. From the repo root:
+```powershell
+& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe" -version
+```
+
+If that fails, install Build Tools and tick **.NET desktop build tools**.
+
+### 2. Clone the repo
+
+```powershell
+git clone https://github.com/Sakuna-Nagodavithana/Altium-MCP-Placement.git
+cd Altium-MCP-Placement
+```
+
+### 3. Point the build script at your Altium install (if needed)
+
+Open `build-and-deploy.ps1` and check the paths near the top:
+
+```powershell
+$AltiumRoot = if (Test-Path "E:\Altium") { "E:\Altium" } else { "C:\Program Files\Altium\AD24" }
+$AltiumGuid = "Altium Designer {2E34A225-0C0D-424C-B915-02F461E29B71}"
+```
+
+- Set `$AltiumRoot` to your real Altium folder (must contain `System\Altium.SDK.dll`).
+- `$AltiumGuid` must match the folder name under `C:\ProgramData\Altium\` (open that folder in Explorer and copy the exact `Altium Designer {…}` name if yours differs).
+
+The script copies Altium/DevExpress reference DLLs into `EasyEDA-Loader\Assemblies\` (gitignored) and installs the built extension into:
+
+`C:\ProgramData\Altium\<AltiumGuid>\Extensions\Altium-MCP-Placement\`
+
+### 4. Build and install the extension
+
+**Close Altium Designer completely** (otherwise the DLL is locked).
+
+From the repo root:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\build-and-deploy.ps1
 ```
 
-3. Restart Altium Designer.
-4. Enable **Altium-MCP-Placement** if prompted.
+You should see something like:
 
-The script builds `Altium-MCP-Placement.dll`, bundles `fab/recommended` stackups, and installs into your Altium `Extensions` folder. Edit paths at the top of `build-and-deploy.ps1` if your Altium install location differs.
+```text
+==> Preparing Altium reference assemblies...
+==> Building with ...\MSBuild.exe
+  EasyEDA-Loader -> ...\Altium-MCP-Placement.dll
+==> Installing into Altium Extensions folder...
+Done. Restart Altium Designer ...
+```
+
+### 5. Enable the extension in Altium
+
+1. Start **Altium Designer**.
+2. If prompted, enable **Altium-MCP-Placement**.
+3. Or: **DXP → Extensions and Updates** (or **Preferences → Extensions**) and make sure **Altium-MCP-Placement** is installed/enabled.
+4. Open a PCB project (schematic + `.PcbDoc`).
+
+### 6. Open the control panel
+
+From a PCB or schematic document:
+
+- Menu: **Tools** (or **File**) → look for **Altium MCP** / **MCP Panel** / **EasyEDAMcpPanel**
+- Or run command **`EasyEDAMcpPanel`** if your menus differ
+
+You should see the panel with steps **1 Prep → 2 Place → 3 Verify** and the green **Smart Place** button.
+
+### 7. First-time recommended workflow
+
+With your project PCB open:
+
+1. **Board Needs** → review stackup / vias / heat → optionally **Apply stackup + via sizes**
+2. **Stackup Advisor** → **Use This (Save + Open)** → in Altium: **Design → Layer Stack Manager → File → Load Stackup From File** (from `Documents\AltiumEE\recommended-stackups\`)
+3. **Setup Net Classes & Rules**
+4. **Smart Place (recommended)** — or use **Floorplan Preview** then Auto-Place manually
+5. Nudge RF / antenna / connectors by hand
+6. Route (priority: RF → HighSpeed → PWR → Logic)
+7. **Stitch Vias** → **Full PCB DRC**
+
+Exports and plans are written to:
+
+`%USERPROFILE%\Documents\AltiumEE\`  
+(`connectivity.json`, `placement_plan.json`, `fab-preference.json`, …)
+
+### 8. Optional — MCP server for Cursor / AI agents
+
+Only needed if you want agents to call tools against the exported design.
+
+```powershell
+cd altium-mcp
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+copy .env.example .env
+# Edit .env — for online mode generate a key:
+#   powershell -ExecutionPolicy Bypass -File .\scripts\generate-api-key.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\start-local.ps1
+```
+
+- MCP URL: `http://127.0.0.1:8787/mcp`
+- Health: `http://127.0.0.1:8787/health`
+
+In the Altium MCP panel, expand **MCP export & connection**, confirm the URL/key match `.env`, and use **Start Server** if the panel manages it.
+
+Cursor config snippets: see [`altium-mcp/AGENT-CONNECTION.md`](altium-mcp/AGENT-CONNECTION.md).  
+Remote / ngrok: see [`altium-mcp/SETUP-ONLINE.md`](altium-mcp/SETUP-ONLINE.md).
+
+**Never commit `.env`.**
+
+### Setup troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| `MSBuild not found` / build fails | Install VS 2022 Build Tools + **.NET desktop build tools** |
+| Copy Altium DLL failed | Fix `$AltiumRoot` in `build-and-deploy.ps1` |
+| Deploy folder missing / wrong PC | Fix `$AltiumGuid` to match `C:\ProgramData\Altium\` |
+| Extension not in menus | Restart Altium; enable extension; check `ProgramData\...\Extensions\Altium-MCP-Placement\` has the DLL |
+| DLL locked / deploy fails | Close Altium completely, then re-run the script |
+| Smart Place / export errors | Open the project `.PcbDoc` first, then open the MCP panel |
+| Stackup “Use This” but board unchanged | You must load the `.stackupx` in **Layer Stack Manager** manually (Altium has no reliable API load) |
 
 ---
 
-## Control panel workflow (recommended)
+## Control panel workflow (after setup)
 
 Open **Altium MCP Control Panel** from the extension menus. The UI is three steps:
 
@@ -128,22 +237,14 @@ With a schematic open:
 
 ---
 
-## MCP server (AI connectivity)
+## MCP server notes
 
-```powershell
-cd altium-mcp
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-copy .env.example .env
-# Edit .env — generate a key with scripts\generate-api-key.ps1 for online mode
-powershell -ExecutionPolicy Bypass -File .\scripts\start-local.ps1
-```
+Full install steps are in **Setup §8** above. Local URLs:
 
-- Local MCP URL: `http://127.0.0.1:8787/mcp`  
-- Health: `http://127.0.0.1:8787/health`  
+- `http://127.0.0.1:8787/mcp`
+- `http://127.0.0.1:8787/health`
 
-**Never commit `.env`.** See `altium-mcp/SETUP-ONLINE.md` and `altium-mcp/AGENT-CONNECTION.md`.
+See also `altium-mcp/SETUP-ONLINE.md` and `altium-mcp/AGENT-CONNECTION.md`.
 
 User exports live under `%USERPROFILE%\Documents\AltiumEE\` (`connectivity.json`, `placement_plan.json`, `floorplan_plan.json`, `fab-preference.json`, `board_needs_report.txt`, …) — not in git.
 
